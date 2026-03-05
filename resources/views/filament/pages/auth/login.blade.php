@@ -75,7 +75,8 @@
 
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Press+Start+2P&display=swap');
 
-        .cc-login-wrapper {
+        /* CSS vars on :root so they work when cat is moved to body */
+        :root {
             --cc-bg: #0a0a1a;
             --cc-surface: #12122a;
             --cc-primary: #00f0ff;
@@ -84,6 +85,9 @@
             --cc-text: #e0e0ff;
             --cc-muted: #7878a0;
             --cc-dark: #0a0a1a;
+        }
+
+        .cc-login-wrapper {
             position: relative;
             display: flex;
             align-items: center;
@@ -146,10 +150,13 @@
             user-select: none; -webkit-user-select: none;
             touch-action: none;
         }
-        .cc-cat.dragging { cursor: grabbing; z-index: 9999; }
-        .cc-cat.free-fall {
+        .cc-cat.dragging, .cc-cat.free-fall {
             position: fixed;
             z-index: 9999;
+            cursor: grabbing;
+            overflow: visible !important;
+            clip: auto !important;
+            clip-path: none !important;
         }
         .cc-cat.facing-left { transform: scaleX(-1); }
         .cc-cat.falling {
@@ -642,40 +649,87 @@
         }
 
         function doFall() {
-            // Walk to edge, look down, fall off — land at bottom of card
+            // Walk to edge, look down, then fall using physics
             const edge = Math.random() > 0.5 ? trackW - CAT_W : 0;
             walkTo(edge, () => {
                 setState('sit');
                 setFacing(edge === 0);
-                // Pause at edge, looking down
+                showSpeech('...');
+                // Pause at edge, then fall with physics
                 stateTimeout = setTimeout(() => {
-                    // Fall!
-                    const currentTrack = isOnBottom ? bottomTrack : track;
-                    if (currentTrack) currentTrack.style.overflow = 'visible';
-                    setState('fall');
-                    cat.style.transition = 'bottom 1s cubic-bezier(0.55, 0, 1, 0.45), transform 1s ease-in';
-                    cat.style.bottom = '-400px';
-                    cat.style.transform = (facingLeft ? 'scaleX(-1) ' : '') + 'rotate(' + (edge === 0 ? '-' : '') + '45deg)';
+                    // Get cat's current screen position
+                    const catRect = cat.getBoundingClientRect();
 
-                    stateTimeout = setTimeout(() => {
-                        if (currentTrack) currentTrack.style.overflow = 'hidden';
+                    // Move cat to fixed position on body
+                    cat.classList.remove('walking', 'sitting', 'sleeping', 'falling', 'grooming', 'spinning', 'pouncing', 'peeking');
+                    cat.classList.add('free-fall');
+                    cat.style.position = 'fixed';
+                    cat.style.left = catRect.left + 'px';
+                    cat.style.top = catRect.top + 'px';
+                    cat.style.bottom = 'auto';
+                    cat.style.transition = 'none';
+                    document.body.appendChild(cat);
 
-                        if (!isOnBottom) {
-                            // Fell from top — land on bottom track
-                            moveToBottomTrack();
-                            setState('sit');
-                            showSpeech('Ow!');
-                            // Do some stuff down here, then climb back up
-                            stateTimeout = setTimeout(() => doBottomBehavior(0), 1500);
-                        } else {
-                            // Fell from bottom — reappear on top
-                            moveToTopTrack();
-                            setX(edge === 0 ? trackW - CAT_W : 0);
-                            setState('idle');
-                            showSpeech('Wheee!');
-                            stateTimeout = setTimeout(() => nextBehavior(), 1500);
+                    showSpeech('AAAH!');
+
+                    // Use physics engine to fall
+                    velX = (facingLeft ? -1 : 1) * (30 + Math.random() * 60);
+                    velY = 0;
+                    let px = catRect.left;
+                    let py = catRect.top;
+                    let lastTime = performance.now();
+
+                    function fallStep(now) {
+                        const dt = Math.min((now - lastTime) / 1000, 0.05);
+                        lastTime = now;
+
+                        velY += GRAVITY * dt;
+                        velX *= (1 - (1 - FRICTION) * dt * 10);
+                        px += velX * dt;
+                        py += velY * dt;
+
+                        const vw = window.innerWidth;
+                        const vh = window.innerHeight;
+
+                        // Floor
+                        if (py > vh - 48) {
+                            py = vh - 48;
+                            velY = -velY * BOUNCE;
+                            velX *= FRICTION;
+                            if (Math.abs(velY) < 60) velY = 0;
                         }
-                    }, 1200);
+                        // Walls
+                        if (px < 0) { px = 0; velX = -velX * BOUNCE; }
+                        if (px > vw - CAT_W) { px = vw - CAT_W; velX = -velX * BOUNCE; }
+
+                        cat.style.left = px + 'px';
+                        cat.style.top = py + 'px';
+
+                        // Spin while falling fast
+                        const speed = Math.sqrt(velX * velX + velY * velY);
+                        if (speed > 200) {
+                            const angle = Math.atan2(velY, velX) * (180 / Math.PI);
+                            cat.style.transform = 'rotate(' + angle + 'deg)';
+                        } else {
+                            cat.style.transform = '';
+                        }
+
+                        // Settled on floor?
+                        if (Math.abs(velX) < MIN_VEL && Math.abs(velY) < MIN_VEL && py >= vh - 50) {
+                            cat.style.transform = '';
+                            showSpeech('Ow!');
+                            // Do some stuff on the floor, then return
+                            setTimeout(() => {
+                                showSpeech('hmm...');
+                                setTimeout(() => returnToTrack(), 2000);
+                            }, 1500);
+                            return;
+                        }
+
+                        physicsFrame = requestAnimationFrame(fallStep);
+                    }
+
+                    physicsFrame = requestAnimationFrame(fallStep);
                 }, 800);
             });
         }
