@@ -54,6 +54,10 @@ class GameResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('devkit')
+                    ->label('Dev Kit')
+                    ->icon('heroicon-o-command-line')
+                    ->url(fn (Game $record) => static::getUrl('devkit', ['record' => $record])),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
@@ -74,6 +78,7 @@ class GameResource extends Resource
             'index' => Pages\ListGames::route('/'),
             'create' => Pages\CreateGame::route('/create'),
             'edit' => Pages\EditGame::route('/{record}/edit'),
+            'devkit' => Pages\GameDevKit::route('/{record}/devkit'),
         ];
     }
 }
