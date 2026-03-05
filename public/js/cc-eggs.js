@@ -73,34 +73,108 @@
         draw();
     }
 
-    // -- 2. TYPE "MEOW" → Cat walks across screen --
+    // -- 2. TYPE "MEOW" → Pixel cat walks across screen --
     let typedChars = '';
 
-    function summonCat() {
+    function createPixelCat() {
         const cat = document.createElement('div');
-        cat.innerHTML = '🐈';
-        cat.style.cssText = 'position:fixed;bottom:0;font-size:48px;z-index:99999;pointer-events:none;transition:none;';
+        cat.style.cssText = 'position:relative;width:80px;height:48px;image-rendering:pixelated;';
+
+        const body = document.createElement('div');
+        body.style.cssText = 'width:4px;height:4px;position:absolute;top:0;left:0;background:transparent;box-shadow:' +
+            '20px 0px 0 #e0e0ff,24px -4px 0 #e0e0ff,28px 0px 0 #e0e0ff,' +
+            '52px 0px 0 #e0e0ff,56px -4px 0 #e0e0ff,60px 0px 0 #e0e0ff,' +
+            '24px 4px 0 #e0e0ff,28px 4px 0 #e0e0ff,32px 4px 0 #e0e0ff,' +
+            '36px 4px 0 #e0e0ff,40px 4px 0 #e0e0ff,44px 4px 0 #e0e0ff,' +
+            '48px 4px 0 #e0e0ff,52px 4px 0 #e0e0ff,56px 4px 0 #e0e0ff,' +
+            '20px 8px 0 #e0e0ff,24px 8px 0 #e0e0ff,28px 8px 0 #e0e0ff,' +
+            '32px 8px 0 #e0e0ff,36px 8px 0 #e0e0ff,40px 8px 0 #e0e0ff,' +
+            '44px 8px 0 #e0e0ff,48px 8px 0 #e0e0ff,52px 8px 0 #e0e0ff,' +
+            '56px 8px 0 #e0e0ff,60px 8px 0 #e0e0ff,' +
+            '20px 12px 0 #e0e0ff,24px 12px 0 #e0e0ff,' +
+            '28px 12px 0 #0a0a1a,32px 12px 0 #00f0ff,' +
+            '36px 12px 0 #e0e0ff,40px 12px 0 #e0e0ff,44px 12px 0 #e0e0ff,' +
+            '48px 12px 0 #0a0a1a,52px 12px 0 #00f0ff,' +
+            '56px 12px 0 #e0e0ff,60px 12px 0 #e0e0ff,' +
+            '20px 16px 0 #e0e0ff,24px 16px 0 #e0e0ff,28px 16px 0 #e0e0ff,' +
+            '32px 16px 0 #e0e0ff,36px 16px 0 #e0e0ff,40px 16px 0 #ff00aa,' +
+            '44px 16px 0 #e0e0ff,48px 16px 0 #e0e0ff,52px 16px 0 #e0e0ff,' +
+            '56px 16px 0 #e0e0ff,60px 16px 0 #e0e0ff,' +
+            '8px 20px 0 #7878a0,12px 20px 0 #7878a0,' +
+            '68px 20px 0 #7878a0,72px 20px 0 #7878a0,' +
+            '20px 20px 0 #e0e0ff,24px 20px 0 #e0e0ff,28px 20px 0 #e0e0ff,' +
+            '32px 20px 0 #e0e0ff,36px 20px 0 #e0e0ff,40px 20px 0 #e0e0ff,' +
+            '44px 20px 0 #e0e0ff,48px 20px 0 #e0e0ff,52px 20px 0 #e0e0ff,' +
+            '56px 20px 0 #e0e0ff,60px 20px 0 #e0e0ff,' +
+            '24px 24px 0 #e0e0ff,28px 24px 0 #e0e0ff,32px 24px 0 #e0e0ff,' +
+            '36px 24px 0 #e0e0ff,40px 24px 0 #e0e0ff,44px 24px 0 #e0e0ff,' +
+            '48px 24px 0 #e0e0ff,52px 24px 0 #e0e0ff,56px 24px 0 #e0e0ff,' +
+            '20px 28px 0 #e0e0ff,24px 28px 0 #e0e0ff,28px 28px 0 #e0e0ff,' +
+            '32px 28px 0 #e0e0ff,36px 28px 0 #e0e0ff,40px 28px 0 #e0e0ff,' +
+            '44px 28px 0 #e0e0ff,48px 28px 0 #e0e0ff,52px 28px 0 #e0e0ff,' +
+            '56px 28px 0 #e0e0ff,60px 28px 0 #e0e0ff,' +
+            '20px 32px 0 #e0e0ff,24px 32px 0 #e0e0ff,28px 32px 0 #e0e0ff,' +
+            '32px 32px 0 #e0e0ff,36px 32px 0 #e0e0ff,40px 32px 0 #e0e0ff,' +
+            '44px 32px 0 #e0e0ff,48px 32px 0 #e0e0ff,52px 32px 0 #e0e0ff,' +
+            '56px 32px 0 #e0e0ff,60px 32px 0 #e0e0ff,' +
+            '64px 28px 0 #e0e0ff,68px 28px 0 #e0e0ff,' +
+            '72px 24px 0 #e0e0ff,76px 20px 0 #e0e0ff,80px 20px 0 #e0e0ff;';
+        cat.appendChild(body);
+
+        const legs = document.createElement('div');
+        legs.style.cssText = 'width:4px;height:4px;position:absolute;top:0;left:0;background:transparent;';
+        legs.className = 'cc-egg-legs';
+        cat.appendChild(legs);
+
+        return cat;
+    }
+
+    // Inject walking animation for egg cats
+    const eggStyle = document.createElement('style');
+    eggStyle.textContent = `
+        @keyframes eggLegWalk {
+            0%, 100% { box-shadow: 16px 36px 0 #e0e0ff, 20px 40px 0 #e0e0ff, 56px 36px 0 #e0e0ff, 60px 40px 0 #e0e0ff; }
+            50% { box-shadow: 20px 36px 0 #e0e0ff, 16px 40px 0 #e0e0ff, 60px 36px 0 #e0e0ff, 56px 40px 0 #e0e0ff; }
+        }
+        .cc-egg-legs {
+            box-shadow: 16px 36px 0 #e0e0ff, 20px 40px 0 #e0e0ff, 56px 36px 0 #e0e0ff, 60px 40px 0 #e0e0ff;
+            animation: eggLegWalk 0.4s steps(1) infinite;
+        }
+        .cc-egg-legs.sitting {
+            animation: none;
+            box-shadow: 20px 36px 0 #e0e0ff, 24px 36px 0 #e0e0ff, 56px 36px 0 #e0e0ff, 60px 36px 0 #e0e0ff;
+        }
+    `;
+    document.head.appendChild(eggStyle);
+
+    function summonCat() {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:fixed;bottom:0;z-index:99999;pointer-events:none;transition:none;';
         const fromLeft = Math.random() > 0.5;
-        cat.style[fromLeft ? 'left' : 'right'] = '-60px';
+        wrapper.style[fromLeft ? 'left' : 'right'] = '-90px';
+
+        const cat = createPixelCat();
         if (!fromLeft) cat.style.transform = 'scaleX(-1)';
-        document.body.appendChild(cat);
+        wrapper.appendChild(cat);
 
         const speech = document.createElement('div');
         speech.textContent = 'Meow!';
-        speech.style.cssText = 'position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#12122a;border:1px solid #00f0ff;color:#00f0ff;padding:4px 10px;font-family:"JetBrains Mono",monospace;font-size:12px;white-space:nowrap;border-radius:0;';
-        cat.appendChild(speech);
+        speech.style.cssText = 'position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:#12122a;border:1px solid #00f0ff;color:#00f0ff;padding:3px 8px;font-family:"Press Start 2P","JetBrains Mono",monospace;font-size:0.4rem;white-space:nowrap;border-radius:0;';
+        wrapper.appendChild(speech);
 
-        let pos = -60;
+        document.body.appendChild(wrapper);
+
+        let pos = -90;
         const speed = 2;
-        const target = window.innerWidth + 80;
+        const target = window.innerWidth + 100;
 
         function step() {
             pos += speed;
-            cat.style[fromLeft ? 'left' : 'right'] = pos + 'px';
+            wrapper.style[fromLeft ? 'left' : 'right'] = pos + 'px';
             if (pos < target) {
                 requestAnimationFrame(step);
             } else {
-                cat.remove();
+                wrapper.remove();
             }
         }
         requestAnimationFrame(step);
@@ -136,7 +210,7 @@
     let brandTimer = null;
 
     document.addEventListener('click', function(e) {
-        const brand = e.target.closest('.fi-sidebar-header a, .fi-topbar a[href*="admin"]');
+        const brand = e.target.closest('.fi-sidebar-header a, .fi-topbar a[href*="admin"], [class*="brand"], .fi-sidebar-header button');
         if (!brand) { brandClicks = 0; return; }
 
         brandClicks++;
@@ -198,15 +272,18 @@
         idleCatShown = true;
 
         const peek = document.createElement('div');
-        peek.innerHTML = '😺';
-        peek.style.cssText = 'position:fixed;bottom:-50px;right:20px;font-size:48px;z-index:99999;cursor:pointer;transition:bottom 0.5s cubic-bezier(0.34,1.56,0.64,1);';
-        document.body.appendChild(peek);
+        peek.style.cssText = 'position:fixed;bottom:-50px;right:20px;z-index:99999;cursor:pointer;transition:bottom 0.5s cubic-bezier(0.34,1.56,0.64,1);';
 
-        setTimeout(() => peek.style.bottom = '-10px', 100);
+        const cat = createPixelCat();
+        cat.querySelector('.cc-egg-legs').classList.add('sitting');
+        peek.appendChild(cat);
+
+        document.body.appendChild(peek);
+        setTimeout(() => peek.style.bottom = '-20px', 100);
 
         const bubble = document.createElement('div');
         bubble.textContent = 'Still there?';
-        bubble.style.cssText = 'position:absolute;bottom:100%;right:0;background:#12122a;border:1px solid #00f0ff;color:#00f0ff;padding:4px 10px;font-family:"JetBrains Mono",monospace;font-size:11px;white-space:nowrap;opacity:0;transition:opacity 0.3s;';
+        bubble.style.cssText = 'position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:#12122a;border:1px solid #00f0ff;color:#00f0ff;padding:3px 8px;font-family:"Press Start 2P","JetBrains Mono",monospace;font-size:0.4rem;white-space:nowrap;opacity:0;transition:opacity 0.3s;';
         peek.appendChild(bubble);
         setTimeout(() => bubble.style.opacity = '1', 600);
 
