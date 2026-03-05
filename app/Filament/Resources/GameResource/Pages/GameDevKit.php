@@ -5,6 +5,7 @@ namespace App\Filament\Resources\GameResource\Pages;
 use App\Filament\Resources\GameResource;
 use App\Models\Game;
 use Filament\Resources\Pages\Page;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Forms\Form;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -13,17 +14,18 @@ use Filament\Forms\Contracts\HasForms;
 class GameDevKit extends Page implements HasForms
 {
     use InteractsWithForms;
+    use InteractsWithRecord;
 
     protected static string $resource = GameResource::class;
     protected static string $view = 'filament.resources.game-resource.pages.game-dev-kit';
     protected static ?string $title = 'Developer Kit';
 
-    public ?Game $record = null;
     public array $features = ['auth', 'leaderboards', 'achievements', 'saves'];
 
     public function mount(int|string $record): void
     {
-        $this->record = Game::with(['leaderboardTypes', 'achievementDefinitions'])->findOrFail($record);
+        $this->record = $this->resolveRecord($record);
+        $this->record->load(['leaderboardTypes', 'achievementDefinitions']);
 
         $features = ['auth'];
         if ($this->record->leaderboardTypes->count()) $features[] = 'leaderboards';
