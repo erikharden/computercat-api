@@ -9,14 +9,23 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create admin user for Filament
-        User::factory()->create([
-            'name' => 'Admin',
-            'display_name' => 'Admin',
-            'email' => 'admin@computercat.cc',
-            'password' => bcrypt('password'),
-            'is_anonymous' => false,
-        ]);
+        // Create admin users for Filament
+        $admins = [
+            ['name' => 'Erik', 'email' => 'erik@humblebrag.se', 'password' => env('ADMIN_ERIK_PASS', 'password')],
+            ['name' => 'Mattias', 'email' => 'mattias@humblebrag.se', 'password' => env('ADMIN_MATTIAS_PASS', 'password')],
+        ];
+
+        foreach ($admins as $admin) {
+            User::updateOrCreate(
+                ['email' => $admin['email']],
+                [
+                    'name' => $admin['name'],
+                    'display_name' => $admin['name'],
+                    'password' => bcrypt($admin['password']),
+                    'is_anonymous' => false,
+                ]
+            );
+        }
 
         $this->call([
             GameSeeder::class,
