@@ -52,6 +52,9 @@
             <div class="cc-login-footer">
                 <span class="cc-blink-cursor">&gt;</span> ready_
             </div>
+
+            {{-- Cat bottom track (appears when cat falls) --}}
+            <div class="cc-cat-track cc-cat-track-bottom" id="cat-track-bottom"></div>
         </div>
     </div>
 
@@ -128,6 +131,9 @@
         .cc-cat-track {
             position: absolute; top: -48px; left: 0; right: 0;
             height: 48px; overflow: hidden; pointer-events: none;
+        }
+        .cc-cat-track-bottom {
+            top: auto; bottom: -48px;
         }
 
         /* -- Cat -- */
@@ -604,8 +610,32 @@
             });
         }
 
+        const bottomTrack = document.getElementById('cat-track-bottom');
+        let isOnBottom = false;
+
+        function moveToBottomTrack() {
+            if (!bottomTrack) return;
+            isOnBottom = true;
+            bottomTrack.appendChild(cat);
+            bottomTrack.appendChild(fly);
+            cat.style.transition = 'none';
+            cat.style.bottom = '0';
+            cat.style.transform = '';
+            setX(Math.random() * (trackW - CAT_W));
+            setFacing(false);
+        }
+
+        function moveToTopTrack() {
+            isOnBottom = false;
+            track.appendChild(cat);
+            track.appendChild(fly);
+            cat.style.transition = 'none';
+            cat.style.bottom = '0';
+            cat.style.transform = '';
+        }
+
         function doFall() {
-            // Walk to edge, look down, fall off
+            // Walk to edge, look down, fall off — land at bottom of card
             const edge = Math.random() > 0.5 ? trackW - CAT_W : 0;
             walkTo(edge, () => {
                 setState('sit');
@@ -613,25 +643,101 @@
                 // Pause at edge, looking down
                 stateTimeout = setTimeout(() => {
                     // Fall!
-                    track.style.overflow = 'visible';
+                    const currentTrack = isOnBottom ? bottomTrack : track;
+                    if (currentTrack) currentTrack.style.overflow = 'visible';
                     setState('fall');
-                    cat.style.transition = 'bottom 1.2s cubic-bezier(0.55, 0, 1, 0.45), transform 1.2s ease-in';
-                    cat.style.bottom = '-300px';
-                    cat.style.transform = (facingLeft ? 'scaleX(-1) ' : '') + 'rotate(' + (edge === 0 ? '-' : '') + '90deg)';
+                    cat.style.transition = 'bottom 1s cubic-bezier(0.55, 0, 1, 0.45), transform 1s ease-in';
+                    cat.style.bottom = '-400px';
+                    cat.style.transform = (facingLeft ? 'scaleX(-1) ' : '') + 'rotate(' + (edge === 0 ? '-' : '') + '45deg)';
 
                     stateTimeout = setTimeout(() => {
-                        // Reset: cat reappears from other side
-                        cat.style.transition = 'none';
-                        track.style.overflow = 'hidden';
-                        cat.style.bottom = '0';
-                        cat.style.transform = '';
-                        setX(edge === 0 ? trackW - CAT_W : 0);
-                        setFacing(false);
-                        setState('idle');
-                        showSpeech('Ow!');
-                        stateTimeout = setTimeout(() => nextBehavior(), 1500);
-                    }, 1500);
+                        if (currentTrack) currentTrack.style.overflow = 'hidden';
+
+                        if (!isOnBottom) {
+                            // Fell from top — land on bottom track
+                            moveToBottomTrack();
+                            setState('sit');
+                            showSpeech('Ow!');
+                            // Do some stuff down here, then climb back up
+                            stateTimeout = setTimeout(() => doBottomBehavior(0), 1500);
+                        } else {
+                            // Fell from bottom — reappear on top
+                            moveToTopTrack();
+                            setX(edge === 0 ? trackW - CAT_W : 0);
+                            setState('idle');
+                            showSpeech('Wheee!');
+                            stateTimeout = setTimeout(() => nextBehavior(), 1500);
+                        }
+                    }, 1200);
                 }, 800);
+            });
+        }
+
+        function doBottomBehavior(count) {
+            // Do a few random things at the bottom, then climb back up
+            if (count >= 2 + Math.floor(Math.random() * 3)) {
+                // Time to climb back up
+                doClimbBack();
+                return;
+            }
+
+            const r = Math.random();
+            if (r < 0.3) {
+                // Walk around at bottom
+                const target = Math.random() * (trackW - CAT_W);
+                walkTo(target, () => {
+                    stateTimeout = setTimeout(() => doBottomBehavior(count + 1), 500);
+                });
+            } else if (r < 0.5) {
+                // Sit and look up
+                setState('sit');
+                showSpeech('how do I get up?');
+                stateTimeout = setTimeout(() => doBottomBehavior(count + 1), 2000);
+            } else if (r < 0.7) {
+                // Groom
+                setState('groom');
+                showSpeech('*lick*');
+                stateTimeout = setTimeout(() => doBottomBehavior(count + 1), 2500);
+            } else if (r < 0.85) {
+                // Tail chase at bottom
+                setState('spin');
+                showSpeech('?!');
+                stateTimeout = setTimeout(() => {
+                    setState('sit');
+                    showSpeech('*dizzy*');
+                    stateTimeout = setTimeout(() => doBottomBehavior(count + 1), 1000);
+                }, 2400);
+            } else {
+                // Sleep briefly
+                setState('sleep');
+                zzz.textContent = 'z Z z';
+                stateTimeout = setTimeout(() => {
+                    zzz.textContent = '';
+                    doBottomBehavior(count + 1);
+                }, 3000);
+            }
+        }
+
+        function doClimbBack() {
+            // Walk to edge, "jump" back to top
+            const edge = Math.random() > 0.5 ? 0 : trackW - CAT_W;
+            walkTo(edge, () => {
+                setState('sit');
+                showSpeech('*jump!*');
+                stateTimeout = setTimeout(() => {
+                    if (bottomTrack) bottomTrack.style.overflow = 'visible';
+                    cat.style.transition = 'bottom 0.6s ease-out';
+                    cat.style.bottom = '400px';
+
+                    stateTimeout = setTimeout(() => {
+                        if (bottomTrack) bottomTrack.style.overflow = 'hidden';
+                        moveToTopTrack();
+                        setX(edge);
+                        setState('sit');
+                        showSpeech('Made it!');
+                        stateTimeout = setTimeout(() => nextBehavior(), 1500);
+                    }, 700);
+                }, 500);
             });
         }
 
