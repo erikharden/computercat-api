@@ -42,7 +42,7 @@ class GameSaveController extends Controller
     {
         $validated = $request->validate([
             'data' => 'required|array',
-            'version' => 'required|integer|min:1',
+            'version' => 'required|integer|min:0',
             'checksum' => 'nullable|string|max:64',
         ]);
 
