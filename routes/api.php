@@ -29,6 +29,7 @@ Route::prefix('v1')->group(function () {
     // Game-scoped endpoints (authenticated)
     Route::middleware(['auth:sanctum', ResolveGame::class])
         ->prefix('/games/{game}')
+        ->withoutMiddleware(\Illuminate\Routing\Middleware\SubstituteBindings::class)
         ->group(function () {
             // Leaderboards
             Route::get('/leaderboards/{type}/me', [LeaderboardController::class, 'me']);
