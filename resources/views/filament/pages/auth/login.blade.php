@@ -141,8 +141,15 @@
             position: absolute; bottom: 0; left: 50px;
             width: 80px; height: 48px;
             image-rendering: pixelated;
-            cursor: pointer; pointer-events: auto;
+            cursor: grab; pointer-events: auto;
             transition: none;
+            user-select: none; -webkit-user-select: none;
+            touch-action: none;
+        }
+        .cc-cat.dragging { cursor: grabbing; z-index: 9999; }
+        .cc-cat.free-fall {
+            position: fixed;
+            z-index: 9999;
         }
         .cc-cat.facing-left { transform: scaleX(-1); }
         .cc-cat.falling {
@@ -770,9 +777,262 @@
             setTimeout(() => { if (speechEl) { speechEl.remove(); speechEl = null; } }, 2000);
         }
 
-        cat.addEventListener('click', function(e) {
+        // -- DRAG & PHYSICS --
+        let isDragging = false;
+        let dragStartX = 0, dragStartY = 0;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let dragMoved = false;
+        let velX = 0, velY = 0;
+        let lastDragX = 0, lastDragY = 0;
+        let lastDragTime = 0;
+        let physicsFrame = null;
+
+        const GRAVITY = 1200; // px/s^2
+        const BOUNCE = 0.5;
+        const FRICTION = 0.85;
+        const MIN_VEL = 20;
+
+        function startDrag(clientX, clientY) {
+            // Stop all current behavior
+            if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+            if (stateTimeout) { clearTimeout(stateTimeout); stateTimeout = null; }
+            if (physicsFrame) { cancelAnimationFrame(physicsFrame); physicsFrame = null; }
+
+            isDragging = true;
+            dragMoved = false;
+
+            const catRect = cat.getBoundingClientRect();
+            dragOffsetX = clientX - catRect.left;
+            dragOffsetY = clientY - catRect.top;
+            dragStartX = clientX;
+            dragStartY = clientY;
+
+            // Move cat to fixed position on the page
+            cat.classList.remove('walking', 'sitting', 'sleeping', 'falling', 'grooming', 'spinning', 'pouncing', 'peeking', 'facing-left');
+            cat.classList.add('dragging');
+            cat.style.position = 'fixed';
+            cat.style.left = (clientX - dragOffsetX) + 'px';
+            cat.style.top = (clientY - dragOffsetY) + 'px';
+            cat.style.bottom = 'auto';
+            cat.style.transition = 'none';
+            cat.style.transform = '';
+            document.body.appendChild(cat);
+
+            velX = 0; velY = 0;
+            lastDragX = clientX;
+            lastDragY = clientY;
+            lastDragTime = performance.now();
+
+            showSpeech('Mrrp!');
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!isDragging) return;
+            const dx = clientX - dragStartX;
+            const dy = clientY - dragStartY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+
+            cat.style.left = (clientX - dragOffsetX) + 'px';
+            cat.style.top = (clientY - dragOffsetY) + 'px';
+
+            // Track velocity
+            const now = performance.now();
+            const dt = (now - lastDragTime) / 1000;
+            if (dt > 0.005) {
+                velX = (clientX - lastDragX) / dt;
+                velY = (clientY - lastDragY) / dt;
+                lastDragX = clientX;
+                lastDragY = clientY;
+                lastDragTime = now;
+            }
+
+            // Flip cat based on drag direction
+            if (Math.abs(velX) > 50) {
+                cat.style.transform = velX < 0 ? 'scaleX(-1)' : '';
+            }
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            cat.classList.remove('dragging');
+            cat.classList.add('free-fall');
+
+            // Cap velocity
+            const maxVel = 2000;
+            velX = Math.max(-maxVel, Math.min(maxVel, velX));
+            velY = Math.max(-maxVel, Math.min(maxVel, velY));
+
+            showSpeech(Math.abs(velY) > 400 ? 'AAAH!' : 'Whoa!');
+
+            // Start physics
+            let px = parseFloat(cat.style.left);
+            let py = parseFloat(cat.style.top);
+            let lastTime = performance.now();
+            let bounceCount = 0;
+            let settled = false;
+
+            function physicsStep(now) {
+                const dt = Math.min((now - lastTime) / 1000, 0.05);
+                lastTime = now;
+
+                // Apply gravity
+                velY += GRAVITY * dt;
+
+                // Apply air friction to horizontal
+                velX *= (1 - (1 - FRICTION) * dt * 10);
+
+                px += velX * dt;
+                py += velY * dt;
+
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+
+                // Floor collision
+                if (py > vh - 48) {
+                    py = vh - 48;
+                    velY = -velY * BOUNCE;
+                    velX *= FRICTION;
+                    bounceCount++;
+                    if (Math.abs(velY) < 60) velY = 0;
+                }
+
+                // Wall collisions
+                if (px < 0) { px = 0; velX = -velX * BOUNCE; }
+                if (px > vw - CAT_W) { px = vw - CAT_W; velX = -velX * BOUNCE; }
+
+                // Ceiling
+                if (py < 0) { py = 0; velY = -velY * BOUNCE; }
+
+                cat.style.left = px + 'px';
+                cat.style.top = py + 'px';
+
+                // Spin cat based on velocity
+                const speed = Math.sqrt(velX * velX + velY * velY);
+                if (speed > 200) {
+                    const angle = Math.atan2(velY, velX) * (180 / Math.PI);
+                    cat.style.transform = 'rotate(' + angle + 'deg)';
+                } else {
+                    cat.style.transform = '';
+                }
+
+                // Check if settled
+                if (Math.abs(velX) < MIN_VEL && Math.abs(velY) < MIN_VEL && py >= vh - 50) {
+                    settled = true;
+                }
+
+                // Check if cat lands on the card top edge
+                const card = document.getElementById('login-card');
+                if (card) {
+                    const cardRect = card.getBoundingClientRect();
+                    const catCenterX = px + CAT_W / 2;
+                    const catBottom = py + 48;
+
+                    // Landing on top of card
+                    if (catBottom >= cardRect.top - 5 && catBottom <= cardRect.top + 15 &&
+                        catCenterX > cardRect.left && catCenterX < cardRect.right &&
+                        velY > 0) {
+                        // Snap back to top track!
+                        returnToTrack();
+                        return;
+                    }
+                }
+
+                if (settled) {
+                    // Cat sits on floor, then after a moment returns to card
+                    cat.style.transform = '';
+                    showSpeech('*thud*');
+                    setTimeout(() => {
+                        showSpeech('hmm...');
+                        setTimeout(() => returnToTrack(), 2000);
+                    }, 1500);
+                    return;
+                }
+
+                physicsFrame = requestAnimationFrame(physicsStep);
+            }
+
+            physicsFrame = requestAnimationFrame(physicsStep);
+        }
+
+        function returnToTrack() {
+            if (physicsFrame) { cancelAnimationFrame(physicsFrame); physicsFrame = null; }
+
+            cat.classList.remove('free-fall', 'dragging');
+            cat.style.position = 'absolute';
+            cat.style.top = '';
+            cat.style.bottom = '0';
+            cat.style.transition = 'none';
+            cat.style.transform = '';
+
+            // Return to whichever track cat was on
+            const parentTrack = isOnBottom ? bottomTrack : track;
+            parentTrack.appendChild(cat);
+            parentTrack.appendChild(fly);
+
+            trackW = track.offsetWidth;
+            setX(Math.random() * (trackW - CAT_W));
+            setFacing(false);
+            showSpeech('Made it!');
+            stateTimeout = setTimeout(() => nextBehavior(), 1500);
+        }
+
+        // Mouse events
+        cat.addEventListener('mousedown', function(e) {
+            e.preventDefault();
             e.stopPropagation();
-            showSpeech(meows[Math.floor(Math.random() * meows.length)]);
+            startDrag(e.clientX, e.clientY);
+        });
+        document.addEventListener('mousemove', function(e) {
+            moveDrag(e.clientX, e.clientY);
+        });
+        document.addEventListener('mouseup', function(e) {
+            if (!isDragging) return;
+            if (!dragMoved) {
+                // It was a click, not a drag — show speech
+                isDragging = false;
+                cat.classList.remove('dragging');
+                // Return cat to track position
+                cat.style.position = 'absolute';
+                cat.style.top = '';
+                cat.style.bottom = '0';
+                const parentTrack = isOnBottom ? bottomTrack : track;
+                parentTrack.appendChild(cat);
+                parentTrack.appendChild(fly);
+                showSpeech(meows[Math.floor(Math.random() * meows.length)]);
+                return;
+            }
+            endDrag();
+        });
+
+        // Touch events
+        cat.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const t = e.touches[0];
+            startDrag(t.clientX, t.clientY);
+        }, { passive: false });
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            moveDrag(t.clientX, t.clientY);
+        }, { passive: false });
+        document.addEventListener('touchend', function(e) {
+            if (!isDragging) return;
+            if (!dragMoved) {
+                isDragging = false;
+                cat.classList.remove('dragging');
+                cat.style.position = 'absolute';
+                cat.style.top = '';
+                cat.style.bottom = '0';
+                const parentTrack = isOnBottom ? bottomTrack : track;
+                parentTrack.appendChild(cat);
+                parentTrack.appendChild(fly);
+                showSpeech(meows[Math.floor(Math.random() * meows.length)]);
+                return;
+            }
+            endDrag();
         });
 
         // Start

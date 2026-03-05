@@ -1,0 +1,264 @@
+/* Computer Cat - Cyberpunk Admin Theme */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Press+Start+2P&display=swap');
+
+:root {
+    --cc-bg: #0a0a1a;
+    --cc-surface: #12122a;
+    --cc-surface-light: #1a1a3a;
+    --cc-primary: #00f0ff;
+    --cc-secondary: #ff00aa;
+    --cc-tertiary: #39ff14;
+    --cc-text: #e0e0ff;
+    --cc-muted: #7878a0;
+}
+
+/* -- Base body -- */
+body.fi-body {
+    background: var(--cc-bg) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* -- Scanline overlay on entire admin -- */
+body.fi-body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,240,255,0.01) 2px, rgba(0,240,255,0.01) 4px);
+    pointer-events: none; z-index: 9999;
+}
+
+/* -- Sidebar -- */
+.fi-sidebar {
+    background: var(--cc-surface) !important;
+    border-right: 1px solid rgba(0,240,255,0.1) !important;
+}
+.fi-sidebar-header {
+    border-bottom: 1px solid rgba(0,240,255,0.1) !important;
+}
+
+/* Sidebar brand */
+.fi-sidebar-header a {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 0.65rem !important;
+    letter-spacing: 1px !important;
+}
+
+/* Sidebar nav items */
+.fi-sidebar-item a, .fi-sidebar-group-button button {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.8rem !important;
+    color: var(--cc-muted) !important;
+    transition: all 0.2s !important;
+    border-radius: 0 !important;
+}
+.fi-sidebar-item a:hover, .fi-sidebar-group-button button:hover {
+    color: var(--cc-primary) !important;
+    background: rgba(0,240,255,0.05) !important;
+}
+.fi-sidebar-item-active a {
+    color: var(--cc-primary) !important;
+    background: rgba(0,240,255,0.08) !important;
+    border-left: 2px solid var(--cc-primary) !important;
+    box-shadow: inset 0 0 20px rgba(0,240,255,0.03) !important;
+}
+
+/* Sidebar icons */
+.fi-sidebar-item svg {
+    color: inherit !important;
+}
+
+/* -- Top bar -- */
+.fi-topbar {
+    background: var(--cc-surface) !important;
+    border-bottom: 1px solid rgba(0,240,255,0.1) !important;
+}
+.fi-topbar::after {
+    content: '';
+    position: absolute; bottom: -1px; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cc-primary) 20%, var(--cc-secondary) 50%, var(--cc-primary) 80%, transparent);
+    opacity: 0.4;
+}
+
+/* -- Main content area -- */
+.fi-main {
+    background: var(--cc-bg) !important;
+}
+.fi-main-ctn {
+    background: transparent !important;
+}
+
+/* -- Page header -- */
+.fi-header-heading {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-text) !important;
+}
+.fi-header-subheading {
+    color: var(--cc-muted) !important;
+}
+
+/* -- Cards/Sections -- */
+.fi-section, .fi-wi-stats-overview-stat, .fi-card {
+    background: var(--cc-surface) !important;
+    border: 1px solid rgba(0,240,255,0.1) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 0 30px rgba(0,240,255,0.03) inset !important;
+}
+
+/* Stat widgets */
+.fi-wi-stats-overview-stat {
+    position: relative;
+    overflow: hidden;
+}
+.fi-wi-stats-overview-stat::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--cc-primary), var(--cc-secondary));
+    opacity: 0.6;
+}
+.fi-wi-stats-overview-stat-label {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-muted) !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+.fi-wi-stats-overview-stat-value {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-text) !important;
+}
+
+/* -- Tables -- */
+.fi-ta-table {
+    background: transparent !important;
+}
+.fi-ta-row {
+    border-bottom: 1px solid rgba(0,240,255,0.05) !important;
+}
+.fi-ta-row:hover td {
+    background: rgba(0,240,255,0.03) !important;
+}
+.fi-ta-header-cell {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-muted) !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border-bottom: 1px solid rgba(0,240,255,0.15) !important;
+}
+.fi-ta-cell {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-text) !important;
+    font-size: 0.85rem !important;
+}
+
+/* -- Inputs -- */
+.fi-input, .fi-select-input, textarea.fi-textarea-input {
+    background: rgba(0,240,255,0.04) !important;
+    border: 1px solid rgba(0,240,255,0.15) !important;
+    color: var(--cc-text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    border-radius: 0 !important;
+    transition: all 0.2s !important;
+}
+.fi-input:focus, .fi-select-input:focus, textarea.fi-textarea-input:focus {
+    border-color: var(--cc-primary) !important;
+    box-shadow: 0 0 0 1px var(--cc-primary), 0 0 10px rgba(0,240,255,0.1) !important;
+    outline: none !important;
+}
+
+/* Labels */
+.fi-fo-field-wrp label, .fi-fo-field-wrp .fi-field-wrp-label {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-muted) !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.5px !important;
+}
+
+/* -- Buttons -- */
+.fi-btn {
+    font-family: 'JetBrains Mono', monospace !important;
+    border-radius: 0 !important;
+    transition: all 0.2s !important;
+}
+.fi-btn-primary, .fi-btn[data-type="submit"] {
+    border: 1px solid var(--cc-primary) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* -- Badges -- */
+.fi-badge {
+    font-family: 'JetBrains Mono', monospace !important;
+    border-radius: 0 !important;
+    font-size: 0.7rem !important;
+}
+
+/* -- Tabs -- */
+.fi-tabs-tab {
+    font-family: 'JetBrains Mono', monospace !important;
+    border-radius: 0 !important;
+}
+
+/* -- Modal -- */
+.fi-modal-window {
+    background: var(--cc-surface) !important;
+    border: 1px solid rgba(0,240,255,0.15) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 0 60px rgba(0,240,255,0.1), 0 0 4px rgba(0,0,0,0.8) !important;
+}
+
+/* -- Notification -- */
+.fi-notification {
+    background: var(--cc-surface) !important;
+    border: 1px solid rgba(0,240,255,0.15) !important;
+    border-radius: 0 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* -- Breadcrumbs -- */
+.fi-breadcrumbs li {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--cc-muted) !important;
+    font-size: 0.75rem !important;
+}
+.fi-breadcrumbs a:hover {
+    color: var(--cc-primary) !important;
+}
+
+/* -- Empty state -- */
+.fi-ta-empty-state {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* -- Pagination -- */
+.fi-pagination {
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* -- Global text color fix for dark surfaces -- */
+.fi-body .text-gray-500 { color: var(--cc-muted) !important; }
+.fi-body .text-gray-700 { color: var(--cc-text) !important; }
+.fi-body .text-gray-950 { color: var(--cc-text) !important; }
+
+/* -- Search -- */
+.fi-global-search-field input {
+    background: rgba(0,240,255,0.04) !important;
+    border: 1px solid rgba(0,240,255,0.15) !important;
+    color: var(--cc-text) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    border-radius: 0 !important;
+}
+
+/* -- User menu -- */
+.fi-dropdown-panel {
+    background: var(--cc-surface) !important;
+    border: 1px solid rgba(0,240,255,0.15) !important;
+    border-radius: 0 !important;
+}
+.fi-dropdown-list-item:hover {
+    background: rgba(0,240,255,0.05) !important;
+}
+
+/* Glow accent on primary color elements */
+[style*="--c-400:var(--primary-400)"],
+[style*="--c-500:var(--primary-500)"] {
+    text-shadow: 0 0 8px rgba(0,240,255,0.3);
+}
