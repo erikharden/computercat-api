@@ -562,10 +562,13 @@
         }
 
         function doTailChase() {
+            const currentTrack = isOnBottom ? bottomTrack : track;
+            if (currentTrack) currentTrack.style.overflow = 'visible';
             setState('spin');
             showSpeech('?!');
             const spins = 3 + Math.floor(Math.random() * 4);
             stateTimeout = setTimeout(() => {
+                if (currentTrack) currentTrack.style.overflow = 'hidden';
                 setState('sit');
                 showSpeech('*dizzy*');
                 stateTimeout = setTimeout(() => nextBehavior(), 1500);
@@ -717,12 +720,11 @@
                         // Settled on floor?
                         if (Math.abs(velX) < MIN_VEL && Math.abs(velY) < MIN_VEL && py >= vh - 50) {
                             cat.style.transform = '';
+                            cat.classList.remove('free-fall');
+                            cat.classList.add('sitting');
                             showSpeech('Ow!');
-                            // Do some stuff on the floor, then return
-                            setTimeout(() => {
-                                showSpeech('hmm...');
-                                setTimeout(() => returnToTrack(), 2000);
-                            }, 1500);
+                            floorX = px;
+                            stateTimeout = setTimeout(() => doFloorBehaviors(0), 1500);
                             return;
                         }
 
@@ -993,13 +995,12 @@
                 }
 
                 if (settled) {
-                    // Cat sits on floor, then after a moment returns to card
                     cat.style.transform = '';
-                    showSpeech('*thud*');
-                    setTimeout(() => {
-                        showSpeech('hmm...');
-                        setTimeout(() => returnToTrack(), 2000);
-                    }, 1500);
+                    cat.classList.remove('free-fall');
+                    cat.classList.add('sitting');
+                    showSpeech('Ow!');
+                    floorX = px;
+                    stateTimeout = setTimeout(() => doFloorBehaviors(0), 1500);
                     return;
                 }
 
@@ -1007,6 +1008,156 @@
             }
 
             physicsFrame = requestAnimationFrame(physicsStep);
+        }
+
+        // -- FLOOR BEHAVIORS (cat is position:fixed at bottom of viewport) --
+        let floorX = 0;
+
+        function floorSetX(val) {
+            floorX = Math.max(0, Math.min(val, window.innerWidth - CAT_W));
+            cat.style.left = floorX + 'px';
+        }
+
+        function doFloorBehaviors(count) {
+            if (count >= 3 + Math.floor(Math.random() * 3)) {
+                // Jump back to card
+                doFloorJumpBack();
+                return;
+            }
+
+            const r = Math.random();
+            if (r < 0.3) {
+                // Walk around on floor
+                cat.classList.remove('sitting', 'sleeping', 'grooming', 'spinning');
+                cat.classList.add('walking');
+                const target = Math.random() * (window.innerWidth - CAT_W);
+                const facingL = target < floorX;
+                cat.style.transform = facingL ? 'scaleX(-1)' : '';
+                const dist = Math.abs(target - floorX);
+                const duration = (dist / SPEED) * 1000;
+                const startX = floorX;
+                const startTime = performance.now();
+
+                function floorWalk(now) {
+                    const progress = Math.min((now - startTime) / duration, 1);
+                    floorSetX(startX + (target - startX) * progress);
+                    if (progress < 1) {
+                        animFrame = requestAnimationFrame(floorWalk);
+                    } else {
+                        animFrame = null;
+                        stateTimeout = setTimeout(() => doFloorBehaviors(count + 1), 500);
+                    }
+                }
+                animFrame = requestAnimationFrame(floorWalk);
+            } else if (r < 0.45) {
+                // Sit and look up at card
+                cat.classList.remove('walking', 'grooming', 'spinning');
+                cat.classList.add('sitting');
+                cat.style.transform = '';
+                showSpeech('how do I get up?');
+                stateTimeout = setTimeout(() => doFloorBehaviors(count + 1), 2500);
+            } else if (r < 0.6) {
+                // Groom
+                cat.classList.remove('walking', 'sitting', 'spinning');
+                cat.classList.add('sitting', 'grooming');
+                cat.style.transform = '';
+                showSpeech('*lick*');
+                stateTimeout = setTimeout(() => doFloorBehaviors(count + 1), 3000);
+            } else if (r < 0.75) {
+                // Tail chase on floor
+                cat.classList.remove('walking', 'sitting', 'grooming');
+                cat.classList.add('spinning');
+                cat.style.transform = '';
+                showSpeech('?!');
+                stateTimeout = setTimeout(() => {
+                    cat.classList.remove('spinning');
+                    cat.classList.add('sitting');
+                    showSpeech('*dizzy*');
+                    stateTimeout = setTimeout(() => doFloorBehaviors(count + 1), 1500);
+                }, 2400);
+            } else if (r < 0.85) {
+                // Sleep
+                cat.classList.remove('walking', 'grooming', 'spinning');
+                cat.classList.add('sitting', 'sleeping');
+                cat.style.transform = '';
+                zzz.textContent = 'z Z z';
+                stateTimeout = setTimeout(() => {
+                    zzz.textContent = '';
+                    cat.classList.remove('sleeping');
+                    doFloorBehaviors(count + 1);
+                }, 3000 + Math.random() * 2000);
+            } else {
+                // Pounce on floor
+                cat.classList.remove('walking', 'sitting', 'grooming', 'spinning');
+                cat.classList.add('sitting');
+                const pounceLeft = Math.random() > 0.5;
+                cat.style.transform = pounceLeft ? 'scaleX(-1)' : '';
+                // Butt wiggle
+                let w = 0;
+                const wi = setInterval(() => {
+                    const base = pounceLeft ? 'scaleX(-1) ' : '';
+                    cat.style.transform = base + 'translateX(' + (w % 2 === 0 ? '2' : '-2') + 'px)';
+                    w++;
+                    if (w >= 6) {
+                        clearInterval(wi);
+                        cat.style.transform = pounceLeft ? 'scaleX(-1)' : '';
+                        cat.classList.add('pouncing');
+                        const jumpDist = 60 + Math.random() * 100;
+                        floorSetX(pounceLeft ? floorX - jumpDist : floorX + jumpDist);
+                        setTimeout(() => {
+                            cat.classList.remove('pouncing');
+                            cat.classList.add('sitting');
+                            showSpeech(Math.random() > 0.5 ? '*gotcha!*' : '*missed*');
+                            stateTimeout = setTimeout(() => doFloorBehaviors(count + 1), 1500);
+                        }, 400);
+                    }
+                }, 100);
+            }
+        }
+
+        function doFloorJumpBack() {
+            cat.classList.remove('walking', 'sleeping', 'grooming', 'spinning', 'pouncing');
+            cat.classList.add('sitting');
+            cat.style.transform = '';
+            showSpeech('*jump!*');
+
+            stateTimeout = setTimeout(() => {
+                // Animate cat jumping up toward card
+                const card = document.getElementById('login-card');
+                const cardRect = card ? card.getBoundingClientRect() : { top: window.innerHeight / 2, left: window.innerWidth / 3, right: window.innerWidth * 2 / 3 };
+                const targetX = cardRect.left + Math.random() * (cardRect.right - cardRect.left - CAT_W);
+                const targetY = cardRect.top - 48;
+
+                // Parabolic jump
+                const startX = floorX;
+                const startY = window.innerHeight - 48;
+                const duration = 600;
+                const startTime = performance.now();
+
+                function jumpStep(now) {
+                    const progress = Math.min((now - startTime) / duration, 1);
+                    const easedP = progress; // linear for position
+                    const px = startX + (targetX - startX) * easedP;
+                    // Parabolic arc: goes up then down
+                    const arc = -4 * (easedP - 0.5) * (easedP - 0.5) + 1; // peaks at 0.5
+                    const midY = Math.min(startY, targetY) - 150; // apex 150px above highest point
+                    const py = startY + (targetY - startY) * easedP - arc * (startY - midY);
+
+                    cat.style.left = px + 'px';
+                    cat.style.top = py + 'px';
+
+                    // Spin during jump
+                    cat.style.transform = 'rotate(' + (progress * 360) + 'deg)';
+
+                    if (progress < 1) {
+                        physicsFrame = requestAnimationFrame(jumpStep);
+                    } else {
+                        returnToTrack();
+                    }
+                }
+
+                physicsFrame = requestAnimationFrame(jumpStep);
+            }, 500);
         }
 
         function returnToTrack() {
