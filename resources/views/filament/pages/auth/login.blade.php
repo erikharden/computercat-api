@@ -196,9 +196,14 @@
                 56px 36px 0 var(--cc-text), 60px 40px 0 var(--cc-text);
         }
         .cc-cat.walking .cc-cat-legs { animation: legWalk 0.4s steps(1) infinite; }
-        .cc-cat.sitting .cc-cat-legs {
+        .cc-cat.sitting .cc-cat-legs, .cc-cat.grooming .cc-cat-legs {
             box-shadow:
                 20px 36px 0 var(--cc-text), 24px 36px 0 var(--cc-text),
+                56px 36px 0 var(--cc-text), 60px 36px 0 var(--cc-text);
+        }
+        .cc-cat.pouncing .cc-cat-legs {
+            box-shadow:
+                16px 36px 0 var(--cc-text), 20px 36px 0 var(--cc-text),
                 56px 36px 0 var(--cc-text), 60px 36px 0 var(--cc-text);
         }
 
@@ -211,6 +216,56 @@
                 box-shadow: 20px 36px 0 var(--cc-text), 16px 40px 0 var(--cc-text),
                             60px 36px 0 var(--cc-text), 56px 40px 0 var(--cc-text);
             }
+        }
+
+        /* Grooming paw animation */
+        .cc-cat.grooming .cc-cat-legs {
+            animation: groomPaw 0.8s steps(1) infinite;
+        }
+        @keyframes groomPaw {
+            0%, 100% {
+                box-shadow:
+                    20px 36px 0 var(--cc-text), 24px 36px 0 var(--cc-text),
+                    56px 36px 0 var(--cc-text), 60px 36px 0 var(--cc-text);
+            }
+            50% {
+                box-shadow:
+                    24px 28px 0 var(--cc-text), 28px 24px 0 var(--cc-text),
+                    56px 36px 0 var(--cc-text), 60px 36px 0 var(--cc-text);
+            }
+        }
+
+        /* Spinning for tail chase */
+        .cc-cat.spinning {
+            animation: tailSpin 0.6s linear infinite;
+            transform-origin: 40px 24px;
+        }
+        @keyframes tailSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Pounce animation */
+        .cc-cat.pouncing {
+            animation: pounceAnim 0.4s ease-out;
+        }
+        @keyframes pounceAnim {
+            0% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+        .cc-cat.pouncing.facing-left {
+            animation: pounceAnimFlip 0.4s ease-out;
+        }
+        @keyframes pounceAnimFlip {
+            0% { transform: scaleX(-1) translateY(0); }
+            40% { transform: scaleX(-1) translateY(-20px); }
+            100% { transform: scaleX(-1) translateY(0); }
+        }
+
+        /* Peek over edge */
+        .cc-cat.peeking {
+            transition: bottom 0.4s ease-in-out;
         }
 
         /* Eye blink */
@@ -252,7 +307,11 @@
             opacity: 0; pointer-events: none;
             box-shadow: 0 0 6px var(--cc-tertiary), 0 0 12px rgba(57,255,20,0.3);
         }
-        .cc-fly.active { opacity: 1; }
+        .cc-fly.active { opacity: 1; animation: flyBuzz 0.15s ease-in-out infinite alternate; }
+        @keyframes flyBuzz {
+            0% { transform: translate(-1px, -1px); }
+            100% { transform: translate(1px, 1px); }
+        }
 
         /* -- Header -- */
         .cc-login-header { text-align: center; margin-bottom: 2rem; }
@@ -379,12 +438,17 @@
         }
 
         function setState(s) {
-            cat.classList.remove('walking', 'sitting', 'sleeping', 'falling');
+            cat.classList.remove('walking', 'sitting', 'sleeping', 'falling', 'grooming', 'spinning', 'pouncing', 'peeking');
+            if (s !== 'peek' && s !== 'fall') { cat.style.bottom = '0'; }
             state = s;
             if (s === 'walking') cat.classList.add('walking');
             if (s === 'sit' || s === 'chase') cat.classList.add('sitting');
             if (s === 'sleep') { cat.classList.add('sitting', 'sleeping'); }
             if (s === 'fall') cat.classList.add('falling');
+            if (s === 'groom') cat.classList.add('sitting', 'grooming');
+            if (s === 'spin') cat.classList.add('spinning');
+            if (s === 'pounce') cat.classList.add('pouncing');
+            if (s === 'peek') cat.classList.add('sitting', 'peeking');
         }
 
         // -- BEHAVIORS --
@@ -471,6 +535,75 @@
             chaseBounce();
         }
 
+        function doGroom() {
+            setState('groom');
+            showSpeech('*lick*');
+            stateTimeout = setTimeout(() => nextBehavior(), 3000 + Math.random() * 2000);
+        }
+
+        function doTailChase() {
+            setState('spin');
+            showSpeech('?!');
+            const spins = 3 + Math.floor(Math.random() * 4);
+            stateTimeout = setTimeout(() => {
+                setState('sit');
+                showSpeech('*dizzy*');
+                stateTimeout = setTimeout(() => nextBehavior(), 1500);
+            }, spins * 600);
+        }
+
+        function doPounce() {
+            // Wiggle butt, then pounce forward
+            setState('sit');
+            const pounceDir = Math.random() > 0.5;
+            setFacing(pounceDir);
+
+            // Butt wiggle phase
+            let wiggles = 0;
+            const wiggleInterval = setInterval(() => {
+                cat.style.transform = (facingLeft ? 'scaleX(-1) ' : '') + 'translateX(' + (wiggles % 2 === 0 ? '2' : '-2') + 'px)';
+                wiggles++;
+                if (wiggles >= 6) {
+                    clearInterval(wiggleInterval);
+                    cat.style.transform = facingLeft ? 'scaleX(-1)' : '';
+                    // Pounce!
+                    setState('pounce');
+                    const jumpDist = 60 + Math.random() * 80;
+                    const targetX = facingLeft ? x - jumpDist : x + jumpDist;
+                    setTimeout(() => {
+                        setX(targetX);
+                        setTimeout(() => {
+                            setState('sit');
+                            const caught = Math.random() > 0.5;
+                            showSpeech(caught ? '*gotcha!*' : '*missed*');
+                            stateTimeout = setTimeout(() => nextBehavior(), 1500);
+                        }, 400);
+                    }, 50);
+                }
+            }, 100);
+        }
+
+        function doPeek() {
+            // Walk to edge and peek down
+            const edge = Math.random() > 0.5 ? trackW - CAT_W : 0;
+            walkTo(edge, () => {
+                setState('peek');
+                setFacing(edge === 0);
+                // Slowly lower down to peek
+                cat.style.bottom = '-16px';
+                showSpeech('...');
+                stateTimeout = setTimeout(() => {
+                    // Look around
+                    showSpeech('hmm');
+                    stateTimeout = setTimeout(() => {
+                        // Come back up
+                        cat.style.bottom = '0';
+                        stateTimeout = setTimeout(() => nextBehavior(), 800);
+                    }, 1500);
+                }, 1500);
+            });
+        }
+
         function doFall() {
             // Walk to edge, look down, fall off
             const edge = Math.random() > 0.5 ? trackW - CAT_W : 0;
@@ -507,10 +640,14 @@
             if (stateTimeout) { clearTimeout(stateTimeout); stateTimeout = null; }
 
             const r = Math.random();
-            if (r < 0.35)      doWalk();
-            else if (r < 0.55) doSit();
-            else if (r < 0.70) doSleep();
-            else if (r < 0.88) doChase();
+            if (r < 0.22)      doWalk();
+            else if (r < 0.35) doSit();
+            else if (r < 0.45) doSleep();
+            else if (r < 0.58) doChase();
+            else if (r < 0.68) doGroom();
+            else if (r < 0.78) doPounce();
+            else if (r < 0.86) doTailChase();
+            else if (r < 0.94) doPeek();
             else               doFall();
         }
 
