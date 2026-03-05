@@ -67,7 +67,7 @@ body.fi-body::after {
 }
 
 /* -- Top bar -- */
-.fi-topbar {
+.fi-topbar, .fi-topbar nav, .fi-topbar > * {
     background: var(--cc-surface) !important;
     border-bottom: 1px solid rgba(0,240,255,0.1) !important;
 }
