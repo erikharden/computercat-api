@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // Auth (public)
-    Route::post('/auth/anonymous', [AuthController::class, 'anonymous']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:auth')->group(function () {
+        Route::post('/auth/anonymous', [AuthController::class, 'anonymous']);
+        Route::post('/auth/login', [AuthController::class, 'login']);
+    });
 
     // Auth (authenticated, allows anonymous upgrade)
     Route::middleware('auth:sanctum')->group(function () {
@@ -35,7 +37,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/leaderboards/{type}/me', [LeaderboardController::class, 'me']);
             Route::get('/leaderboards/{type}', [LeaderboardController::class, 'index']);
             Route::get('/leaderboards/{type}/{periodKey}', [LeaderboardController::class, 'show']);
-            Route::post('/leaderboards/{type}', [LeaderboardController::class, 'store']);
+            Route::post('/leaderboards/{type}', [LeaderboardController::class, 'store'])
+                ->middleware('throttle:score-submit');
 
             // Achievements
             Route::get('/achievements', [AchievementController::class, 'index']);
