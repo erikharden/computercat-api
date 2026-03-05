@@ -21,16 +21,17 @@
             <x-slot name="heading">
                 <div class="flex items-center justify-between w-full">
                     <span>AI Agent Manual</span>
-                    <button
-                        type="button"
-                        onclick="copyManual()"
-                        class="cc-copy-btn"
-                    >
-                        <span id="copy-label">Copy Manual</span>
-                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="downloadManual()" class="cc-copy-btn">
+                            <span>Download .md</span>
+                        </button>
+                        <button type="button" onclick="copyManual()" class="cc-copy-btn">
+                            <span id="copy-label">Copy to clipboard</span>
+                        </button>
+                    </div>
                 </div>
             </x-slot>
-            <x-slot name="description">Give this to your AI coding assistant. It contains everything needed to integrate with the API.</x-slot>
+            <x-slot name="description">Give this to your AI coding assistant. It contains everything needed to integrate with the API, including a dev token.</x-slot>
 
             {{-- Rendered preview --}}
             <div class="prose prose-sm dark:prose-invert max-w-none cc-markdown">
@@ -97,15 +98,27 @@
         function copyManual() {
             const raw = document.getElementById('manual-raw').value;
             navigator.clipboard.writeText(raw).then(() => {
-                const btn = document.querySelector('.cc-copy-btn');
+                const btn = document.querySelector('#copy-label').closest('.cc-copy-btn');
                 const label = document.getElementById('copy-label');
                 btn.classList.add('copied');
                 label.textContent = 'Copied!';
                 setTimeout(() => {
                     btn.classList.remove('copied');
-                    label.textContent = 'Copy Manual';
+                    label.textContent = 'Copy to clipboard';
                 }, 2000);
             });
+        }
+
+        function downloadManual() {
+            const raw = document.getElementById('manual-raw').value;
+            const slug = @js($record->slug);
+            const blob = new Blob([raw], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = slug + '-integration-manual.md';
+            a.click();
+            URL.revokeObjectURL(url);
         }
     </script>
 </x-filament-panels::page>

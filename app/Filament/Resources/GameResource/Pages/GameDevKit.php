@@ -81,24 +81,40 @@ class GameDevKit extends Page implements HasForms
         return implode("\n", $lines);
     }
 
+    public function getDevToken(): string
+    {
+        $user = auth()->user();
+        $user->tokens()->where('name', 'devkit')->delete();
+
+        return $user->createToken('devkit')->plainTextToken;
+    }
+
     public function getManual(): string
     {
         $game = $this->record;
         $baseUrl = rtrim(config('app.url'), '/') . '/api/v1';
         $features = $this->features;
+        $token = $this->getDevToken();
         $lines = [];
 
         $lines[] = "# Computer Cat API — Integration Manual";
         $lines[] = "";
         $lines[] = "You are integrating \"{$game->name}\" with the Computer Cat backend.";
-        $lines[] = "Game slug: `{$game->slug}`";
         $lines[] = "";
-        $lines[] = "## Base URL";
-        $lines[] = "```";
-        $lines[] = $baseUrl;
-        $lines[] = "```";
+        $lines[] = "## Credentials";
         $lines[] = "";
-        $lines[] = "All authenticated requests need: `Authorization: Bearer <token>`";
+        $lines[] = "| Key | Value |";
+        $lines[] = "|-----|-------|";
+        $lines[] = "| Base URL | `{$baseUrl}` |";
+        $lines[] = "| Game slug | `{$game->slug}` |";
+        $lines[] = "| Dev token | `{$token}` |";
+        $lines[] = "";
+        $lines[] = "Use the dev token for testing. In production, create anonymous users (see Auth section).";
+        $lines[] = "";
+        $lines[] = "All authenticated requests need the header:";
+        $lines[] = "```";
+        $lines[] = "Authorization: Bearer {$token}";
+        $lines[] = "```";
         $lines[] = "";
 
         $lines[] = "## Architecture";
