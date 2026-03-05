@@ -87,11 +87,25 @@ body.fi-body::after {
 }
 
 /* -- Page header -- */
+.fi-header {
+    background: transparent !important;
+}
 .fi-header-heading {
     font-family: 'JetBrains Mono', monospace !important;
     color: var(--cc-text) !important;
 }
 .fi-header-subheading {
+    color: var(--cc-muted) !important;
+}
+
+/* Section headings */
+.fi-section-header {
+    background: transparent !important;
+}
+.fi-section-header-heading {
+    color: var(--cc-text) !important;
+}
+.fi-section-header-description {
     color: var(--cc-muted) !important;
 }
 
@@ -130,7 +144,11 @@ body.fi-body::after {
 .fi-ta-table {
     background: transparent !important;
 }
+.fi-ta-ctn, .fi-ta-table-wrap {
+    background: var(--cc-surface) !important;
+}
 .fi-ta-row {
+    background: var(--cc-surface) !important;
     border-bottom: 1px solid rgba(0,240,255,0.05) !important;
 }
 .fi-ta-row:hover td {
@@ -142,12 +160,27 @@ body.fi-body::after {
     font-size: 0.7rem !important;
     text-transform: uppercase !important;
     letter-spacing: 1px !important;
+    background: var(--cc-surface-light) !important;
     border-bottom: 1px solid rgba(0,240,255,0.15) !important;
 }
 .fi-ta-cell {
     font-family: 'JetBrains Mono', monospace !important;
     color: var(--cc-text) !important;
     font-size: 0.85rem !important;
+    background: transparent !important;
+}
+
+/* Table content wrapper / toolbar */
+.fi-ta-content {
+    background: var(--cc-surface) !important;
+}
+.fi-ta-header-toolbar {
+    background: var(--cc-surface) !important;
+}
+
+/* Pagination row */
+.fi-ta-table + div, .fi-pagination {
+    background: var(--cc-surface) !important;
 }
 
 /* -- Inputs -- */
