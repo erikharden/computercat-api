@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GameSaveController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
+use App\Http\Controllers\Api\V1\OwnershipController;
 use App\Http\Controllers\Api\V1\PurchaseController;
 use App\Http\Middleware\ResolveGame;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/saves/{key}', [GameSaveController::class, 'show']);
             Route::put('/saves/{key}', [GameSaveController::class, 'update']);
             Route::delete('/saves/{key}', [GameSaveController::class, 'destroy']);
+
+            // Ownership (server-authoritative)
+            Route::get('/ownership', [OwnershipController::class, 'show']);
         });
 
     // Purchases (authenticated)

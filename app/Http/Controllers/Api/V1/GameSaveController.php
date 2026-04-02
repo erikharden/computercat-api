@@ -51,6 +51,11 @@ class GameSaveController extends Controller
             ->where('save_key', $key)
             ->first();
 
+        // Sanitize: strip ownership data from saves — ownership is server-authoritative
+        $data = $validated['data'];
+        unset($data['ownership']);
+        $validated['data'] = $data;
+
         if ($save) {
             // Optimistic locking: client must send current version
             if ($validated['version'] !== $save->version) {
