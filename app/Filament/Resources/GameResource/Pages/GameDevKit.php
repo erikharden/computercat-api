@@ -4,6 +4,7 @@ namespace App\Filament\Resources\GameResource\Pages;
 
 use App\Filament\Resources\GameResource;
 use App\Models\Game;
+use App\Filament\Resources\GameResource as GR;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Forms\Form;
@@ -203,17 +204,58 @@ class GameDevKit extends Page implements HasForms
             $lines[] = "- Best score per user per period is kept automatically";
             $lines[] = "- Server validates score against game-specific bounds (configured in game settings)";
             $lines[] = "";
-            $lines[] = "### Anti-cheat";
-            $lines[] = "Include a `proof` object in `metadata` for server-side validation:";
-            $lines[] = "```json";
-            $lines[] = '{"score": 45000, "metadata": {"hintsUsed": 0, "proof": {"pid": "daily/2026-04-02", "mc": 18, "gh": "a1b2c3", "t": 45000, "sig": "x9y8z7"}}}';
-            $lines[] = "```";
-            $lines[] = "- `pid`: puzzle identifier";
-            $lines[] = "- `mc`: move count";
-            $lines[] = "- `gh`: hash of final grid state";
-            $lines[] = "- `t`: elapsed time (ms)";
-            $lines[] = "- `sig`: signature over the above fields (FNV-1a)";
-            $lines[] = "";
+            // Anti-cheat documentation based on configured preset
+            $acConfig = $game->settings['anti_cheat'] ?? [];
+            $presetKey = $game->settings['anti_cheat_preset'] ?? 'none';
+            $preset = GR::ANTI_CHEAT_PRESETS[$presetKey] ?? null;
+
+            if ($presetKey !== 'none') {
+                $lines[] = "### Anti-cheat";
+                $lines[] = "";
+                if ($preset) {
+                    $lines[] = "**Type:** {$preset['label']}";
+                    $lines[] = "";
+                    $lines[] = $preset['description'];
+                    $lines[] = "";
+                }
+                $minScore = $acConfig['min_score'] ?? 0;
+                $maxScore = $acConfig['max_score'] ?? 86400;
+                $lines[] = "- Score range: `{$minScore}` – `{$maxScore}`";
+
+                $requireProof = $acConfig['require_proof'] ?? false;
+                $proofAlgo = $acConfig['proof_algorithm'] ?? null;
+                $minMoves = $acConfig['min_moves'] ?? 1;
+
+                if ($requireProof || $proofAlgo) {
+                    $lines[] = "- Proof-of-play: " . ($requireProof ? '**required**' : 'optional but validated if present');
+                    $lines[] = "";
+                    $lines[] = "Include a `proof` object in `metadata`:";
+                    $lines[] = "```json";
+                    $lines[] = '{"score": 45000, "metadata": {"proof": {"pid": "round-123", "mc": 18, "gh": "a1b2c3", "t": 45000, "sig": "x9y8z7"}}}';
+                    $lines[] = "```";
+                    $lines[] = "";
+                    $lines[] = "| Field | Description |";
+                    $lines[] = "|-------|-------------|";
+                    $lines[] = "| `pid` | Round/puzzle identifier |";
+                    $lines[] = "| `mc` | Move/action count (min: {$minMoves}) |";
+                    $lines[] = "| `gh` | Hash of final game state |";
+                    $lines[] = "| `t` | Elapsed time |";
+                    $lines[] = "| `sig` | Signature over `pid\\|mc\\|gh\\|t` |";
+                    $lines[] = "";
+                    if ($proofAlgo === 'fnv1a') {
+                        $lines[] = "**Signature algorithm: FNV-1a**";
+                        $lines[] = "```";
+                        $lines[] = 'payload = `${pid}|${mc}|${gh}|${t}`';
+                        $lines[] = "h = 0x811c9dc5  // FNV offset basis";
+                        $lines[] = "for each byte in payload:";
+                        $lines[] = "    h = h XOR byte";
+                        $lines[] = "    h = h * 0x01000193  // FNV prime (32-bit multiply)";
+                        $lines[] = "sig = unsigned_32bit(h).toString(36)";
+                        $lines[] = "```";
+                    }
+                }
+                $lines[] = "";
+            }
             $lines[] = "### Get leaderboard";
             $lines[] = "```";
             $lines[] = "GET {$baseUrl}/games/{$game->slug}/leaderboards/{$ex->slug}";

@@ -7,6 +7,7 @@ use App\Filament\Resources\GameResource\RelationManagers;
 use App\Models\Game;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -19,21 +20,162 @@ class GameResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    /**
+     * Anti-cheat presets — named configurations that Mattias can pick from a dropdown.
+     * Each preset configures bounds and proof requirements.
+     */
+    public const ANTI_CHEAT_PRESETS = [
+        'none' => [
+            'label' => 'None — no validation',
+            'description' => 'Scores are accepted as-is. Use for casual games without competitive leaderboards.',
+            'config' => [],
+        ],
+        'time_ms' => [
+            'label' => 'Time-based (milliseconds)',
+            'description' => 'Score = solve time in ms. Lower is better. Validates minimum/maximum time and optionally requires proof-of-play with FNV-1a signature.',
+            'config' => [
+                'score_unit' => 'ms',
+                'min_score' => 5000,
+                'max_score' => 86400000,
+                'proof_algorithm' => 'fnv1a',
+                'proof_time_tolerance' => 1000,
+                'min_moves' => 1,
+            ],
+        ],
+        'time_seconds' => [
+            'label' => 'Time-based (seconds)',
+            'description' => 'Score = solve time in seconds. Lower is better.',
+            'config' => [
+                'score_unit' => 'seconds',
+                'min_score' => 5,
+                'max_score' => 86400,
+                'proof_algorithm' => 'fnv1a',
+                'proof_time_tolerance' => 2,
+                'min_moves' => 1,
+            ],
+        ],
+        'points' => [
+            'label' => 'Points-based (higher is better)',
+            'description' => 'Score = points. Higher is better. Validates against a maximum cap.',
+            'config' => [
+                'min_score' => 0,
+                'max_score' => 1000000,
+            ],
+        ],
+        'points_with_proof' => [
+            'label' => 'Points-based with proof',
+            'description' => 'Score = points. Higher is better. Requires proof-of-play signature.',
+            'config' => [
+                'min_score' => 0,
+                'max_score' => 1000000,
+                'require_proof' => true,
+                'proof_algorithm' => 'fnv1a',
+                'min_moves' => 1,
+            ],
+        ],
+    ];
+
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\TextInput::make('slug')
-                ->required()
-                ->maxLength(50)
-                ->unique(ignoreRecord: true),
-            Forms\Components\TextInput::make('name')
-                ->required()
-                ->maxLength(100),
-            Forms\Components\Textarea::make('description')
-                ->columnSpanFull(),
-            Forms\Components\KeyValue::make('settings'),
-            Forms\Components\Toggle::make('is_active')
-                ->default(true),
+            Forms\Components\Section::make('Basic Info')
+                ->schema([
+                    Forms\Components\TextInput::make('slug')
+                        ->required()
+                        ->maxLength(50)
+                        ->unique(ignoreRecord: true)
+                        ->helperText('URL-friendly identifier (e.g., "tocco", "wordcraft")'),
+                    Forms\Components\TextInput::make('name')
+                        ->required()
+                        ->maxLength(100),
+                    Forms\Components\Textarea::make('description')
+                        ->columnSpanFull(),
+                    Forms\Components\Toggle::make('is_active')
+                        ->default(true),
+                ]),
+
+            Forms\Components\Section::make('Anti-Cheat')
+                ->description('How leaderboard scores are validated. The Dev Kit manual explains the chosen type to the AI assistant.')
+                ->schema([
+                    Forms\Components\Select::make('settings.anti_cheat_preset')
+                        ->label('Preset')
+                        ->options(collect(self::ANTI_CHEAT_PRESETS)->mapWithKeys(fn ($p, $k) => [$k => $p['label']]))
+                        ->default('none')
+                        ->live()
+                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                            $preset = self::ANTI_CHEAT_PRESETS[$state] ?? null;
+                            if ($preset) {
+                                foreach ($preset['config'] as $key => $value) {
+                                    $set("settings.anti_cheat.{$key}", $value);
+                                }
+                            }
+                        })
+                        ->helperText(fn (Get $get) => self::ANTI_CHEAT_PRESETS[$get('settings.anti_cheat_preset') ?? 'none']['description'] ?? ''),
+                    Forms\Components\TextInput::make('settings.anti_cheat.min_score')
+                        ->label('Minimum score')
+                        ->numeric()
+                        ->default(0)
+                        ->helperText('Scores below this are rejected'),
+                    Forms\Components\TextInput::make('settings.anti_cheat.max_score')
+                        ->label('Maximum score')
+                        ->numeric()
+                        ->default(86400)
+                        ->helperText('Scores above this are rejected'),
+                    Forms\Components\Toggle::make('settings.anti_cheat.require_proof')
+                        ->label('Require proof-of-play')
+                        ->default(false)
+                        ->helperText('If enabled, submissions without a proof object are rejected'),
+                    Forms\Components\TextInput::make('settings.anti_cheat.min_moves')
+                        ->label('Minimum moves/actions')
+                        ->numeric()
+                        ->default(1)
+                        ->helperText('Minimum action count required in proof'),
+                ]),
+
+            Forms\Components\Section::make('Products & Ownership')
+                ->description('Define what each product ID unlocks. Used by the /ownership endpoint.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\Repeater::make('settings.product_grants')
+                        ->label('Product grants')
+                        ->schema([
+                            Forms\Components\TextInput::make('product_id')
+                                ->required()
+                                ->helperText('App Store / Play Store product ID'),
+                            Forms\Components\Select::make('type')
+                                ->options([
+                                    'pack' => 'Content pack',
+                                    'theme_pack' => 'Theme pack',
+                                    'supporter' => 'Supporter (unlocks all)',
+                                ])
+                                ->required()
+                                ->live(),
+                            Forms\Components\TextInput::make('id')
+                                ->label('Pack ID')
+                                ->helperText('The pack/theme-pack ID this product unlocks')
+                                ->visible(fn (Get $get) => in_array($get('type'), ['pack', 'theme_pack'])),
+                        ])
+                        ->columns(3)
+                        ->defaultItems(0)
+                        ->itemLabel(fn (array $state): ?string => ($state['product_id'] ?? '') . ' → ' . ($state['type'] ?? ''))
+                        ->collapsible(),
+
+                    Forms\Components\KeyValue::make('settings.theme_packs')
+                        ->label('Theme pack contents')
+                        ->keyLabel('Theme pack ID')
+                        ->valueLabel('Theme IDs (comma-separated)')
+                        ->helperText('Map theme pack IDs to the theme IDs they contain. Values are comma-separated.')
+                        ->default([]),
+                ]),
+
+            Forms\Components\Section::make('Advanced Settings')
+                ->description('Raw settings JSON for anything not covered above.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\KeyValue::make('settings.extra')
+                        ->label('Custom settings')
+                        ->default([]),
+                ]),
         ]);
     }
 

@@ -72,7 +72,7 @@ class AchievementController extends Controller
             // Plausibility: if game has save data, check basic conditions
             if (! empty($progressResults)) {
                 $totalCompleted = count($progressResults);
-                $skip = $this->checkAchievementPlausibility($definition->slug, $totalCompleted, $progressResults);
+                $skip = $this->checkAchievementPlausibility($definition->slug, $totalCompleted, $progressResults, $game);
                 if ($skip) {
                     continue;
                 }
@@ -102,25 +102,28 @@ class AchievementController extends Controller
     }
 
     /**
-     * Basic plausibility check: reject achievements that clearly don't match progress.
+     * Generic plausibility check: reject achievements that clearly don't match progress.
      * Returns true if the achievement should be SKIPPED (implausible).
+     *
+     * Uses a simple heuristic: if the slug contains a number pattern (e.g., "fifty_puzzles",
+     * "100_wins"), extract it and compare against total completed items in the save.
+     * Games can also define explicit thresholds in settings.achievement_thresholds.
      */
-    private function checkAchievementPlausibility(string $slug, int $totalCompleted, array $results): bool
+    private function checkAchievementPlausibility(string $slug, int $totalCompleted, array $results, Game $game): bool
     {
-        // Map achievement slugs to minimum puzzle count required
-        // This is a loose sanity check — exact conditions live client-side
-        $minPuzzles = [
-            'first_puzzle' => 1,
-            'ten_puzzles' => 10,
-            'fifty_puzzles' => 50,
-            'hundred_puzzles' => 100,
-            'two_fifty_puzzles' => 250,
-            'five_hundred_puzzles' => 500,
-            'thousand_puzzles' => 1000,
-        ];
+        // Check game-configured thresholds first (settings.achievement_thresholds)
+        $thresholds = $game->settings['achievement_thresholds'] ?? [];
+        if (isset($thresholds[$slug])) {
+            return $totalCompleted < (int) $thresholds[$slug];
+        }
 
-        if (isset($minPuzzles[$slug]) && $totalCompleted < $minPuzzles[$slug]) {
-            return true; // Skip — not enough puzzles completed
+        // Heuristic: extract number from slug (e.g., "complete_100" → 100)
+        if (preg_match('/(\d+)/', $slug, $m)) {
+            $threshold = (int) $m[1];
+            // Only apply if the number seems like a count threshold (1-10000)
+            if ($threshold > 0 && $threshold <= 10000 && $totalCompleted < $threshold) {
+                return true;
+            }
         }
 
         return false;

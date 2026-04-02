@@ -28,7 +28,12 @@ class LeaderboardTest extends TestCase
             'slug' => 'tocco',
             'name' => 'Tocco',
             'is_active' => true,
-            'settings' => [],
+            'settings' => [
+                'anti_cheat' => [
+                    'min_score' => 5,
+                    'max_score' => 86400,
+                ],
+            ],
         ]);
 
         $this->ascType = LeaderboardType::create([
