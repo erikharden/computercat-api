@@ -211,6 +211,9 @@ class GameResource extends Resource
         return [
             RelationManagers\LeaderboardTypesRelationManager::class,
             RelationManagers\AchievementDefinitionsRelationManager::class,
+            RelationManagers\DailyContentPoolsRelationManager::class,
+            RelationManagers\RemoteConfigsRelationManager::class,
+            RelationManagers\GameEventsRelationManager::class,
         ];
     }
 

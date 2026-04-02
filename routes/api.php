@@ -2,11 +2,16 @@
 
 use App\Http\Controllers\Api\V1\AchievementController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DailyContentController;
 use App\Http\Controllers\Api\V1\GameController;
+use App\Http\Controllers\Api\V1\GameEventController;
 use App\Http\Controllers\Api\V1\GameSaveController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\OwnershipController;
+use App\Http\Controllers\Api\V1\PlayerStatsController;
 use App\Http\Controllers\Api\V1\PurchaseController;
+use App\Http\Controllers\Api\V1\RemoteConfigController;
+use App\Http\Controllers\Api\V1\StreakController;
 use App\Http\Middleware\ApiVersion;
 use App\Http\Middleware\ResolveGame;
 use App\Http\Middleware\TrackLastSeen;
@@ -30,6 +35,13 @@ Route::prefix('v1')->middleware(ApiVersion::class.':1')->group(function () {
     // Games (public)
     Route::get('/games', [GameController::class, 'index']);
     Route::get('/games/{game:slug}', [GameController::class, 'show']);
+
+    // Remote Config (public, no auth required)
+    Route::middleware(ResolveGame::class)
+        ->withoutMiddleware(\Illuminate\Routing\Middleware\SubstituteBindings::class)
+        ->group(function () {
+            Route::get('/games/{game}/config', [RemoteConfigController::class, 'index']);
+        });
 
     // Game-scoped endpoints (authenticated)
     Route::middleware(['auth:sanctum', TrackLastSeen::class, ResolveGame::class])
@@ -56,6 +68,21 @@ Route::prefix('v1')->middleware(ApiVersion::class.':1')->group(function () {
 
             // Ownership (server-authoritative)
             Route::get('/ownership', [OwnershipController::class, 'show']);
+
+            // Daily Content
+            Route::get('/daily/{poolKey}', [DailyContentController::class, 'show']);
+            Route::get('/daily/{poolKey}/{date}', [DailyContentController::class, 'showDate']);
+
+            // Streaks
+            Route::get('/streaks/{key}', [StreakController::class, 'show']);
+            Route::post('/streaks/{key}/record', [StreakController::class, 'record']);
+
+            // Player Stats
+            Route::get('/stats/me', [PlayerStatsController::class, 'me']);
+
+            // Events
+            Route::get('/events', [GameEventController::class, 'index']);
+            Route::get('/events/{slug}', [GameEventController::class, 'show']);
         });
 
     // Purchases (authenticated)

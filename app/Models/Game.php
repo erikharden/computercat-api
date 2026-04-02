@@ -42,4 +42,24 @@ class Game extends Model
     {
         return $this->hasMany(Purchase::class);
     }
+
+    public function dailyContentPools(): HasMany
+    {
+        return $this->hasMany(DailyContentPool::class);
+    }
+
+    public function playerStreaks(): HasMany
+    {
+        return $this->hasMany(PlayerStreak::class);
+    }
+
+    public function remoteConfigs(): HasMany
+    {
+        return $this->hasMany(RemoteConfig::class);
+    }
+
+    public function gameEvents(): HasMany
+    {
+        return $this->hasMany(GameEvent::class);
+    }
 }

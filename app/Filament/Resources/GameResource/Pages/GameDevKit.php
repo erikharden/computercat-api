@@ -26,12 +26,17 @@ class GameDevKit extends Page implements HasForms
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
-        $this->record->load(['leaderboardTypes', 'achievementDefinitions']);
+        $this->record->load(['leaderboardTypes', 'achievementDefinitions', 'dailyContentPools', 'remoteConfigs', 'gameEvents']);
 
         $features = ['auth'];
         if ($this->record->leaderboardTypes->count()) $features[] = 'leaderboards';
         if ($this->record->achievementDefinitions->count()) $features[] = 'achievements';
         $features[] = 'saves';
+        if ($this->record->dailyContentPools->count()) $features[] = 'daily_content';
+        $features[] = 'streaks';
+        if ($this->record->remoteConfigs->count()) $features[] = 'remote_config';
+        $features[] = 'player_stats';
+        if ($this->record->gameEvents->count()) $features[] = 'events';
         $this->features = $features;
     }
 
@@ -45,6 +50,11 @@ class GameDevKit extends Page implements HasForms
                     'leaderboards' => 'Leaderboards',
                     'achievements' => 'Achievements',
                     'saves' => 'Cloud Saves',
+                    'daily_content' => 'Daily Content',
+                    'streaks' => 'Server-side Streaks',
+                    'remote_config' => 'Remote Config / Feature Flags',
+                    'player_stats' => 'Player Stats',
+                    'events' => 'Scheduled Events',
                     'purchases' => 'Purchases & Ownership',
                 ])
                 ->live(),
@@ -73,6 +83,30 @@ class GameDevKit extends Page implements HasForms
         if ($game->achievementDefinitions->count()) {
             $lines[] = "## 3. Achievements ({$game->achievementDefinitions->count()})";
             $lines[] = "Manage via the Edit page > Achievements tab.";
+            $lines[] = "";
+        }
+
+        if ($game->dailyContentPools->count()) {
+            $lines[] = "## Daily Content Pools ({$game->dailyContentPools->count()})";
+            foreach ($game->dailyContentPools as $pool) {
+                $count = is_array($pool->content) ? count($pool->content) : 0;
+                $lines[] = "- **{$pool->pool_key}** — {$count} items" . ($pool->is_active ? '' : ' (inactive)');
+            }
+            $lines[] = "";
+        }
+
+        if ($game->remoteConfigs->where('is_active', true)->count()) {
+            $lines[] = "## Remote Config ({$game->remoteConfigs->where('is_active', true)->count()} active)";
+            $lines[] = "Managed via Edit page > Remote Configs tab.";
+            $lines[] = "";
+        }
+
+        if ($game->gameEvents->count()) {
+            $lines[] = "## Events ({$game->gameEvents->count()})";
+            foreach ($game->gameEvents as $event) {
+                $status = now()->between($event->starts_at, $event->ends_at) ? 'active' : 'scheduled';
+                $lines[] = "- **{$event->name}** (`{$event->slug}`) — {$event->event_type}, {$status}";
+            }
             $lines[] = "";
         }
 
@@ -377,6 +411,180 @@ class GameDevKit extends Page implements HasForms
             $lines[] = "- `receipt_data`: for Apple, send the JWS signed transaction from StoreKit 2. For Google, send the purchase token.";
             $lines[] = "- Server verifies the receipt with the store and sets status to `verified` or `pending`";
             $lines[] = "- After verification, the `/ownership` endpoint reflects the granted content";
+            $lines[] = "";
+        }
+
+        // ── Daily Content ─────────────────────────────────────────────────
+        if (in_array('daily_content', $features)) {
+            $lines[] = "## Daily Content";
+            $lines[] = "";
+            $lines[] = "Server picks today's content deterministically from a pool. No peeking at future content.";
+            $lines[] = "";
+            $lines[] = "### Get today's content";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/daily/{poolKey}";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "Response:";
+            $lines[] = "```json";
+            $lines[] = '{"data": {"pool_key": "puzzles", "date": "2026-04-02", "content": {...}, "index": 42}}';
+            $lines[] = "```";
+            $lines[] = "";
+            $lines[] = "### Get content for a past date";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/daily/{poolKey}/{date}";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "- `date` format: `YYYY-MM-DD`. Only today and past dates are allowed.";
+            $lines[] = "- Selection is deterministic: same date always returns same content.";
+            $lines[] = "- Content pools are managed in the admin panel (Edit Game → Daily Content Pools tab).";
+            $lines[] = "";
+
+            if ($game->dailyContentPools->count()) {
+                $lines[] = "### Configured pools";
+                foreach ($game->dailyContentPools as $pool) {
+                    $count = is_array($pool->content) ? count($pool->content) : 0;
+                    $lines[] = "- `{$pool->pool_key}` — {$count} items";
+                }
+                $lines[] = "";
+            }
+
+            $lines[] = "### Pattern";
+            $lines[] = "1. On app launch, fetch today's content: `GET /daily/{poolKey}`";
+            $lines[] = "2. Cache locally by date — content won't change for a given date";
+            $lines[] = "3. If offline, fall back to cached content or a local pool";
+            $lines[] = "";
+        }
+
+        // ── Streaks ──────────────────────────────────────────────────────────
+        if (in_array('streaks', $features)) {
+            $lines[] = "## Server-side Streaks";
+            $lines[] = "";
+            $lines[] = "Server-authoritative streak tracking. Prevents client-side manipulation.";
+            $lines[] = "";
+            $lines[] = "### Get streak";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/streaks/{key}";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "Response:";
+            $lines[] = "```json";
+            $lines[] = '{"data": {"streak_key": "daily", "current_streak": 7, "longest_streak": 14, "last_activity_date": "2026-04-02", "freeze_balance": 2}}';
+            $lines[] = "```";
+            $lines[] = "";
+            $lines[] = "### Record activity";
+            $lines[] = "```";
+            $lines[] = "POST {$baseUrl}/games/{$game->slug}/streaks/{key}/record";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "Server logic:";
+            $lines[] = "- **Same day** → no-op (idempotent)";
+            $lines[] = "- **Consecutive day** → streak + 1";
+            $lines[] = "- **Missed 1 day + has freeze** → freeze used, streak preserved";
+            $lines[] = "- **Missed 2+ days** → streak resets to 1";
+            $lines[] = "";
+            $lines[] = "Freeze earning is automatic: 1 freeze per N consecutive days (configurable in game settings under `streaks.{key}.freeze_earn_interval`).";
+            $lines[] = "";
+            $lines[] = "### Pattern";
+            $lines[] = "1. After daily puzzle/round completion → `POST /streaks/daily/record`";
+            $lines[] = "2. On app boot → `GET /streaks/daily` to display current streak";
+            $lines[] = "3. Show freeze balance in UI so player knows their safety net";
+            $lines[] = "";
+        }
+
+        // ── Remote Config ────────────────────────────────────────────────────
+        if (in_array('remote_config', $features)) {
+            $lines[] = "## Remote Config / Feature Flags";
+            $lines[] = "";
+            $lines[] = "Key-value configuration fetched on app boot. No auth required (public endpoint for fast loading).";
+            $lines[] = "";
+            $lines[] = "### Fetch config";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/config";
+            $lines[] = "```";
+            $lines[] = "Response:";
+            $lines[] = "```json";
+            $lines[] = '{"data": {"maintenance_mode": false, "min_app_version": "1.2.0", "seasonal_theme": "summer", "new_feature_enabled": true}}';
+            $lines[] = "```";
+            $lines[] = "";
+            $lines[] = "- Values are typed: `string`, `int`, `bool`, or `json`";
+            $lines[] = "- Managed in admin panel (Edit Game → Remote Configs tab)";
+            $lines[] = "- No auth required — call before authentication for fast boot";
+            $lines[] = "";
+
+            if ($game->remoteConfigs->count()) {
+                $lines[] = "### Current config keys";
+                $lines[] = "| Key | Type | Description |";
+                $lines[] = "|-----|------|-------------|";
+                foreach ($game->remoteConfigs->where('is_active', true) as $rc) {
+                    $lines[] = "| `{$rc->key}` | {$rc->value_type} | {$rc->description} |";
+                }
+                $lines[] = "";
+            }
+
+            $lines[] = "### Pattern";
+            $lines[] = "1. Fetch config on app boot (before auth, fast)";
+            $lines[] = "2. Cache locally with a TTL (e.g. 1 hour)";
+            $lines[] = "3. Check `maintenance_mode` before showing game UI";
+            $lines[] = "4. Use feature flags to toggle new features without app update";
+            $lines[] = "";
+        }
+
+        // ── Player Stats ─────────────────────────────────────────────────────
+        if (in_array('player_stats', $features)) {
+            $lines[] = "## Player Stats";
+            $lines[] = "";
+            $lines[] = "Server-computed aggregate statistics. Read-only.";
+            $lines[] = "";
+            $lines[] = "### Get my stats";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/stats/me";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "Response:";
+            $lines[] = "```json";
+            $lines[] = '{"data": {"total_games": 142, "best_scores": {"daily-time": 23400}, "achievement_count": 8, "current_streaks": {"daily": 7}, "member_since": "2026-03-15", "last_active": "2026-04-02"}}';
+            $lines[] = "```";
+            $lines[] = "";
+            $lines[] = "- Computed on the fly from leaderboard entries, achievements, and streaks";
+            $lines[] = "- Use for profile screens, share cards, or onboarding personalization";
+            $lines[] = "";
+        }
+
+        // ── Scheduled Events ─────────────────────────────────────────────────
+        if (in_array('events', $features)) {
+            $lines[] = "## Scheduled Events";
+            $lines[] = "";
+            $lines[] = "Time-boxed events: seasonal challenges, weekend tournaments, limited content.";
+            $lines[] = "";
+            $lines[] = "### List active events";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/events";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "Returns only events where `now()` is between `starts_at` and `ends_at`.";
+            $lines[] = "";
+            $lines[] = "Response:";
+            $lines[] = "```json";
+            $lines[] = '{"data": [{"slug": "spring-challenge", "name": "Spring Challenge", "event_type": "leaderboard", "starts_at": "2026-04-01T00:00:00Z", "ends_at": "2026-04-07T23:59:59Z", "settings": {"leaderboard_type": "weekly-time"}}]}';
+            $lines[] = "```";
+            $lines[] = "";
+            $lines[] = "### Get single event";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/events/{slug}";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "";
+            $lines[] = "### Event types";
+            $lines[] = "- `leaderboard` — temporary competitive leaderboard (reference a leaderboard type in `settings.leaderboard_type`)";
+            $lines[] = "- `challenge` — goal-based event (\"complete 10 puzzles this weekend\")";
+            $lines[] = "- `seasonal` — cosmetic/thematic event (holiday themes, special content)";
+            $lines[] = "";
+            $lines[] = "### Pattern";
+            $lines[] = "1. Fetch active events on app boot → `GET /events`";
+            $lines[] = "2. Show event banners/badges in the UI";
+            $lines[] = "3. For leaderboard events, use the referenced leaderboard type for score submission";
+            $lines[] = "4. Events are managed in the admin panel (Edit Game → Events tab)";
             $lines[] = "";
         }
 
