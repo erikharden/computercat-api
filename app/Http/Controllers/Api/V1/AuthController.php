@@ -15,9 +15,17 @@ class AuthController extends Controller
 {
     public function anonymous(Request $request): JsonResponse
     {
+        $displayName = $request->input('display_name');
+        if ($displayName) {
+            $displayName = trim(strip_tags($displayName));
+            if (! preg_match('/^[\p{L}\p{N}\p{Zs}\-_.!]{1,30}$/u', $displayName)) {
+                $displayName = null;
+            }
+        }
+
         $user = User::create([
             'name' => 'Player-'.Str::random(8),
-            'display_name' => $request->input('display_name'),
+            'display_name' => $displayName,
             'is_anonymous' => true,
         ]);
 
@@ -34,8 +42,12 @@ class AuthController extends Controller
         $validated = $request->validate([
             'email' => 'required|email|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(8)],
-            'display_name' => 'nullable|string|max:50',
+            'display_name' => ['nullable', 'string', 'max:30', 'regex:/^[\p{L}\p{N}\p{Zs}\-_.!]+$/u'],
         ]);
+
+        if (isset($validated['display_name'])) {
+            $validated['display_name'] = trim(strip_tags($validated['display_name']));
+        }
 
         $user = $request->user();
 
@@ -101,8 +113,17 @@ class AuthController extends Controller
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'display_name' => 'required|string|max:50',
+            'display_name' => ['required', 'string', 'max:30', 'regex:/^[\p{L}\p{N}\p{Zs}\-_.!]+$/u'],
+        ], [
+            'display_name.regex' => 'Display name can only contain letters, numbers, spaces, and basic punctuation (- _ . !).',
         ]);
+
+        // Strip any remaining HTML and trim whitespace
+        $validated['display_name'] = trim(strip_tags($validated['display_name']));
+
+        if (strlen($validated['display_name']) < 1) {
+            return response()->json(['message' => 'Display name cannot be empty.'], 422);
+        }
 
         $request->user()->update($validated);
 

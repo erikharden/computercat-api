@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Purchase;
+use App\Services\ReceiptVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PurchaseController extends Controller
 {
+    public function __construct(
+        private ReceiptVerificationService $receiptService,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $purchases = Purchase::where('user_id', $request->user()->id)
@@ -35,6 +40,21 @@ class PurchaseController extends Controller
             'receipt_data' => 'nullable|string',
         ]);
 
+        // Verify receipt with store
+        $result = $this->receiptService->verify(
+            $validated['store'],
+            $validated['product_id'],
+            $validated['transaction_id'],
+            $validated['receipt_data'] ?? null,
+        );
+
+        $status = $result['verified'] ? 'verified' : 'pending';
+
+        // For web purchases (no receipt), mark as pending for manual review
+        if ($validated['store'] === 'web') {
+            $status = 'pending';
+        }
+
         $purchase = Purchase::create([
             'user_id' => $request->user()->id,
             'game_id' => $validated['game_id'],
@@ -42,7 +62,7 @@ class PurchaseController extends Controller
             'store' => $validated['store'],
             'transaction_id' => $validated['transaction_id'],
             'receipt_data' => $validated['receipt_data'] ?? null,
-            'status' => 'pending', // V2: actual receipt verification
+            'status' => $status,
             'purchased_at' => now(),
         ]);
 

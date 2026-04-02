@@ -7,10 +7,12 @@ use App\Http\Controllers\Api\V1\GameSaveController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\OwnershipController;
 use App\Http\Controllers\Api\V1\PurchaseController;
+use App\Http\Middleware\ApiVersion;
 use App\Http\Middleware\ResolveGame;
+use App\Http\Middleware\TrackLastSeen;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware(ApiVersion::class.':1')->group(function () {
     // Auth (public)
     Route::middleware('throttle:auth')->group(function () {
         Route::post('/auth/anonymous', [AuthController::class, 'anonymous']);
@@ -30,7 +32,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/games/{game:slug}', [GameController::class, 'show']);
 
     // Game-scoped endpoints (authenticated)
-    Route::middleware(['auth:sanctum', ResolveGame::class])
+    Route::middleware(['auth:sanctum', TrackLastSeen::class, ResolveGame::class])
         ->prefix('/games/{game}')
         ->withoutMiddleware(\Illuminate\Routing\Middleware\SubstituteBindings::class)
         ->group(function () {

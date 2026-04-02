@@ -40,6 +40,11 @@ class GameSaveController extends Controller
 
     public function update(Request $request, Game $game, string $key): JsonResponse
     {
+        // Reject oversized payloads before parsing
+        if (strlen($request->getContent()) > 512_000) {
+            return response()->json(['message' => 'Save data too large. Maximum 512 KB.'], 413);
+        }
+
         $validated = $request->validate([
             'data' => 'required|array',
             'version' => 'required|integer|min:0',

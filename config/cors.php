@@ -19,12 +19,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'https://tocco.app',
-        'https://*.tocco.app',
-        'http://localhost:*',
-        'http://127.0.0.1:*',
-    ],
+    'allowed_origins' => array_merge(
+        explode(',', env('CORS_ALLOWED_ORIGINS', 'https://tocco.app,https://*.tocco.app')),
+        ['http://localhost', 'http://127.0.0.1'],
+    ),
 
     'allowed_origins_patterns' => [
         '#^https?://localhost(:\d+)?$#',
