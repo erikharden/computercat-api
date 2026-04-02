@@ -44,7 +44,7 @@ class GameDevKit extends Page implements HasForms
                     'leaderboards' => 'Leaderboards',
                     'achievements' => 'Achievements',
                     'saves' => 'Cloud Saves',
-                    'purchases' => 'Purchases',
+                    'purchases' => 'Purchases & Ownership',
                 ])
                 ->live(),
         ]);
@@ -89,12 +89,20 @@ class GameDevKit extends Page implements HasForms
         return $user->createToken('devkit')->plainTextToken;
     }
 
+    private ?string $cachedManual = null;
+
     public function getManual(): string
     {
+        if ($this->cachedManual !== null) {
+            return $this->cachedManual;
+        }
+
         $game = $this->record;
         $baseUrl = rtrim(config('app.url'), '/') . '/api/v1';
         $features = $this->features;
         $token = $this->getDevToken();
+        // Escape pipe in token for markdown table safety
+        $tokenEscaped = str_replace('|', '\\|', $token);
         $lines = [];
 
         $lines[] = "# Computer Cat API — Integration Manual";
@@ -107,7 +115,7 @@ class GameDevKit extends Page implements HasForms
         $lines[] = "|-----|-------|";
         $lines[] = "| Base URL | `{$baseUrl}` |";
         $lines[] = "| Game slug | `{$game->slug}` |";
-        $lines[] = "| Dev token | `{$token}` |";
+        $lines[] = "| Dev token | `{$tokenEscaped}` |";
         $lines[] = "";
         $lines[] = "Use the dev token for testing. In production, create anonymous users (see Auth section).";
         $lines[] = "";
@@ -124,6 +132,7 @@ class GameDevKit extends Page implements HasForms
         $lines[] = "- Store everything in local storage. Push to cloud in background.";
         $lines[] = "- Game must work perfectly without internet.";
         $lines[] = "- On launch: pull cloud → merge with local → push merged state.";
+        $lines[] = "- **Tokens expire after 7 days.** On 401, create a new anonymous user and re-sync.";
         $lines[] = "";
 
         if (in_array('auth', $features)) {
@@ -162,8 +171,11 @@ class GameDevKit extends Page implements HasForms
             $lines[] = "```";
             $lines[] = "PATCH {$baseUrl}/auth/me";
             $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "Content-Type: application/json";
+            $lines[] = "";
             $lines[] = '{"display_name": "NewName"}';
             $lines[] = "```";
+            $lines[] = "**Display name rules:** max 30 characters, only letters, numbers, spaces, and `- _ . !`. HTML tags are stripped.";
             $lines[] = "";
         }
 
@@ -187,8 +199,20 @@ class GameDevKit extends Page implements HasForms
             $lines[] = '{"score": 4250, "metadata": {"level": "6x6"}}';
             $lines[] = "```";
             $lines[] = "- `score`: integer (e.g. milliseconds for time)";
-            $lines[] = "- `metadata`: optional context JSON";
+            $lines[] = "- `metadata`: optional context JSON — include a `proof` object for anti-cheat validation";
             $lines[] = "- Best score per user per period is kept automatically";
+            $lines[] = "- Server validates score against game-specific bounds (configured in game settings)";
+            $lines[] = "";
+            $lines[] = "### Anti-cheat";
+            $lines[] = "Include a `proof` object in `metadata` for server-side validation:";
+            $lines[] = "```json";
+            $lines[] = '{"score": 45000, "metadata": {"hintsUsed": 0, "proof": {"pid": "daily/2026-04-02", "mc": 18, "gh": "a1b2c3", "t": 45000, "sig": "x9y8z7"}}}';
+            $lines[] = "```";
+            $lines[] = "- `pid`: puzzle identifier";
+            $lines[] = "- `mc`: move count";
+            $lines[] = "- `gh`: hash of final grid state";
+            $lines[] = "- `t`: elapsed time (ms)";
+            $lines[] = "- `sig`: signature over the above fields (FNV-1a)";
             $lines[] = "";
             $lines[] = "### Get leaderboard";
             $lines[] = "```";
@@ -246,7 +270,9 @@ class GameDevKit extends Page implements HasForms
         if (in_array('saves', $features)) {
             $lines[] = "## Cloud Saves";
             $lines[] = "";
-            $lines[] = "Opaque JSON blob. Client owns the schema. Optimistic locking via `version`.";
+            $lines[] = "Opaque JSON blob. Client owns the schema. Optimistic locking via `version`. Max payload: **512 KB**.";
+            $lines[] = "";
+            $lines[] = "**Important:** The server strips any `ownership` key from save data on upload. Ownership (purchased content) is server-authoritative — do NOT store it in cloud saves.";
             $lines[] = "";
             $lines[] = "### Save";
             $lines[] = "```";
@@ -276,6 +302,24 @@ class GameDevKit extends Page implements HasForms
         }
 
         if (in_array('purchases', $features)) {
+            $lines[] = "## Ownership";
+            $lines[] = "";
+            $lines[] = "Server-authoritative check of what the user owns based on verified purchases.";
+            $lines[] = "";
+            $lines[] = "### Get ownership";
+            $lines[] = "```";
+            $lines[] = "GET {$baseUrl}/games/{$game->slug}/ownership";
+            $lines[] = "Authorization: Bearer <token>";
+            $lines[] = "```";
+            $lines[] = "Response:";
+            $lines[] = "```json";
+            $lines[] = '{"data": {"owned_packs": ["6x6-medium"], "owned_themes": ["retro", "spring"], "is_supporter": false}}';
+            $lines[] = "```";
+            $lines[] = "Call on app boot after auth. Use this as the source of truth for purchased content. Gameplay-earned rewards (unlocked through play) can be tracked locally and via cloud saves.";
+            $lines[] = "";
+        }
+
+        if (in_array('purchases', $features)) {
             $lines[] = "## Purchases";
             $lines[] = "";
             $lines[] = "### Verify receipt";
@@ -286,7 +330,11 @@ class GameDevKit extends Page implements HasForms
             $lines[] = "";
             $lines[] = '{"game_id": ' . $game->id . ', "product_id": "com.example.premium", "store": "apple", "transaction_id": "...", "receipt_data": "..."}';
             $lines[] = "```";
-            $lines[] = "`store`: `apple`, `google`, or `web`. `transaction_id` is deduplicated.";
+            $lines[] = "- `store`: `apple`, `google`, or `web`";
+            $lines[] = "- `transaction_id`: deduplicated (unique per purchase)";
+            $lines[] = "- `receipt_data`: for Apple, send the JWS signed transaction from StoreKit 2. For Google, send the purchase token.";
+            $lines[] = "- Server verifies the receipt with the store and sets status to `verified` or `pending`";
+            $lines[] = "- After verification, the `/ownership` endpoint reflects the granted content";
             $lines[] = "";
         }
 
