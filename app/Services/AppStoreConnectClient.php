@@ -204,6 +204,90 @@ class AppStoreConnectClient
         return $response->json('data');
     }
 
+    /**
+     * Check if an IAP already has a review screenshot.
+     */
+    public function hasReviewScreenshot(string $iapId): bool
+    {
+        $response = $this->http()->get(self::BASE_URL.'/v2/inAppPurchases/'.$iapId.'/appStoreReviewScreenshot');
+        $data = $response->json('data');
+
+        return ! empty($data) && ($data['attributes']['assetDeliveryState']['state'] ?? null) === 'COMPLETE';
+    }
+
+    /**
+     * Upload a review screenshot for an IAP.
+     * Apple's asset upload is a 3-step protocol:
+     *   1. Reserve: POST with fileSize + fileName → returns uploadOperations
+     *   2. Upload: execute each operation (PUT) with the file bytes
+     *   3. Commit: PATCH with uploaded=true and MD5 checksum
+     */
+    public function uploadReviewScreenshot(string $iapId, string $filePath): array
+    {
+        if (! file_exists($filePath)) {
+            throw new RuntimeException("Screenshot file not found: {$filePath}");
+        }
+
+        $contents = file_get_contents($filePath);
+        $size = strlen($contents);
+        $fileName = basename($filePath);
+        $checksum = md5($contents);
+
+        // Step 1: Reserve the upload
+        $reserve = $this->http()->post(self::BASE_URL.'/v1/inAppPurchaseAppStoreReviewScreenshots', [
+            'data' => [
+                'type' => 'inAppPurchaseAppStoreReviewScreenshots',
+                'attributes' => [
+                    'fileSize' => $size,
+                    'fileName' => $fileName,
+                ],
+                'relationships' => [
+                    'inAppPurchaseV2' => [
+                        'data' => ['type' => 'inAppPurchases', 'id' => $iapId],
+                    ],
+                ],
+            ],
+        ])->json('data');
+
+        $screenshotId = $reserve['id'];
+        $operations = $reserve['attributes']['uploadOperations'] ?? [];
+
+        // Step 2: Execute upload operations
+        foreach ($operations as $op) {
+            $offset = (int) ($op['offset'] ?? 0);
+            $length = (int) ($op['length'] ?? $size);
+            $chunk = substr($contents, $offset, $length);
+
+            $headers = [];
+            foreach ($op['requestHeaders'] ?? [] as $h) {
+                $headers[$h['name']] = $h['value'];
+            }
+
+            $uploadResponse = Http::withHeaders($headers)
+                ->withBody($chunk, $headers['Content-Type'] ?? 'image/png')
+                ->timeout(60)
+                ->send($op['method'], $op['url']);
+
+            if (! $uploadResponse->successful()) {
+                throw new RuntimeException("Upload chunk failed: {$uploadResponse->status()} {$uploadResponse->body()}");
+            }
+        }
+
+        // Step 3: Commit the upload
+        $this->http()->patch(self::BASE_URL.'/v1/inAppPurchaseAppStoreReviewScreenshots/'.$screenshotId, [
+            'data' => [
+                'type' => 'inAppPurchaseAppStoreReviewScreenshots',
+                'id' => $screenshotId,
+                'attributes' => [
+                    'uploaded' => true,
+                    'sourceFileChecksum' => $checksum,
+                ],
+            ],
+        ]);
+
+        return ['id' => $screenshotId];
+    }
+
     /** Cached list of all Apple territory IDs. */
     private ?array $cachedTerritories = null;
 

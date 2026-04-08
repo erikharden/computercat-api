@@ -44,8 +44,7 @@ class ProductSyncService
             if ($existing) {
                 $iapId = $existing['id'];
 
-                // Try to set pricing/availability on existing products too —
-                // they might have been created before this feature was added
+                // Try to set pricing/availability on existing products too
                 $notes = [];
                 try {
                     $client->createAvailability($iapId);
@@ -69,6 +68,9 @@ class ProductSyncService
                     }
                 }
 
+                // Upload review screenshot if configured and not already present
+                $notes = array_merge($notes, $this->maybeUploadScreenshot($client, $iapId, $product));
+
                 $product->update([
                     'apple_state' => 'synced',
                     'apple_synced_at' => now(),
@@ -79,7 +81,7 @@ class ProductSyncService
                 return [
                     'success' => true,
                     'action' => 'already_exists',
-                    'message' => "Already exists (id: {$iapId}){$extra}. Only review screenshot is still manual.",
+                    'message' => "Already exists (id: {$iapId}){$extra}.",
                 ];
             }
 
@@ -156,6 +158,10 @@ class ProductSyncService
                 }
             }
 
+            // Upload review screenshot if configured
+            $screenshotNotes = $this->maybeUploadScreenshot($client, $iapId, $product);
+            $screenshotNote = $screenshotNotes ? ' '.implode(' ', $screenshotNotes).'.' : '';
+
             $product->update([
                 'apple_state' => 'synced',
                 'apple_synced_at' => now(),
@@ -164,7 +170,7 @@ class ProductSyncService
             return [
                 'success' => true,
                 'action' => 'created',
-                'message' => "Created in App Store Connect (id: {$iapId}) with price {$product->price} {$product->currency} and worldwide availability.{$availabilityNote}{$priceNote} Review screenshot still needs to be uploaded manually.",
+                'message' => "Created (id: {$iapId}) with price {$product->price} {$product->currency} and worldwide availability.{$availabilityNote}{$priceNote}{$screenshotNote}",
             ];
         } catch (RuntimeException $e) {
             $product->update([
@@ -199,6 +205,48 @@ class ProductSyncService
             'subscription' => 'AUTO_RENEWABLE_SUBSCRIPTION',
             default => 'NON_CONSUMABLE',
         };
+    }
+
+    /**
+     * Upload the product's review screenshot to App Store Connect if:
+     *   - review_screenshot_path is set on the product
+     *   - the file exists on disk
+     *   - the IAP doesn't already have a screenshot attached
+     *
+     * @return array<string> Status notes to include in the sync response.
+     */
+    private function maybeUploadScreenshot(AppStoreConnectClient $client, string $iapId, \App\Models\Product $product): array
+    {
+        if (! $product->review_screenshot_path) {
+            return [];
+        }
+
+        // Resolve path: absolute path or relative to storage/app/private
+        $path = $product->review_screenshot_path;
+        if (! str_starts_with($path, '/')) {
+            $path = storage_path('app/private/'.ltrim($path, '/'));
+        }
+
+        if (! file_exists($path)) {
+            return ["screenshot not found at {$path}"];
+        }
+
+        // Skip if already has a screenshot
+        try {
+            if ($client->hasReviewScreenshot($iapId)) {
+                return ['screenshot already uploaded'];
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal — proceed with upload attempt
+        }
+
+        try {
+            $client->uploadReviewScreenshot($iapId, $path);
+
+            return ['screenshot uploaded'];
+        } catch (\Throwable $e) {
+            return ['screenshot upload failed: '.$e->getMessage()];
+        }
     }
 
     /**
