@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\OwnershipController;
 use App\Http\Controllers\Api\V1\PlayerStatsController;
 use App\Http\Controllers\Api\V1\PurchaseController;
 use App\Http\Controllers\Api\V1\RemoteConfigController;
+use App\Http\Controllers\Api\V1\RevenueCatWebhookController;
 use App\Http\Controllers\Api\V1\StreakController;
 use App\Http\Middleware\ApiVersion;
 use App\Http\Middleware\ResolveGame;
@@ -41,6 +42,13 @@ Route::prefix('v1')->middleware(ApiVersion::class.':1')->group(function () {
         ->withoutMiddleware(\Illuminate\Routing\Middleware\SubstituteBindings::class)
         ->group(function () {
             Route::get('/games/{game}/config', [RemoteConfigController::class, 'index']);
+        });
+
+    // RevenueCat webhooks (no auth — signature verified in controller)
+    Route::middleware(ResolveGame::class)
+        ->withoutMiddleware(\Illuminate\Routing\Middleware\SubstituteBindings::class)
+        ->group(function () {
+            Route::post('/webhooks/revenuecat/{game}', [RevenueCatWebhookController::class, 'handle']);
         });
 
     // Game-scoped endpoints (authenticated)

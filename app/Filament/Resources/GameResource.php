@@ -168,6 +168,37 @@ class GameResource extends Resource
                         ->default([]),
                 ]),
 
+            Forms\Components\Section::make('RevenueCat Integration')
+                ->description('Configure RevenueCat for in-app purchases. Public key is used by the client; webhook secret is used by the server to verify incoming events.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\TextInput::make('settings.revenuecat.ios_public_key')
+                        ->label('iOS public API key')
+                        ->helperText('Starts with "appl_" — safe to ship in client'),
+                    Forms\Components\TextInput::make('settings.revenuecat.android_public_key')
+                        ->label('Android public API key')
+                        ->helperText('Starts with "goog_"'),
+                    Forms\Components\TextInput::make('settings.revenuecat.webhook_secret')
+                        ->label('Webhook signing secret')
+                        ->password()
+                        ->revealable()
+                        ->helperText('Stored encrypted. Set this in RevenueCat → Project Settings → Webhooks → Authorization header value.')
+                        ->dehydrateStateUsing(function ($state) {
+                            // Only re-encrypt if the value actually changed (not a stub)
+                            if (! $state || str_starts_with($state, 'eyJ')) {
+                                return $state;
+                            }
+
+                            return \Illuminate\Support\Facades\Crypt::encryptString($state);
+                        })
+                        ->formatStateUsing(fn ($state) => $state ? '••••••••••••' : null),
+                    Forms\Components\Placeholder::make('webhook_url')
+                        ->label('Webhook URL (for RevenueCat dashboard)')
+                        ->content(fn ($record) => $record
+                            ? rtrim(config('app.url'), '/') . "/api/v1/webhooks/revenuecat/{$record->slug}"
+                            : 'Save the game first to generate the URL'),
+                ]),
+
             Forms\Components\Section::make('Advanced Settings')
                 ->description('Raw settings JSON for anything not covered above.')
                 ->collapsed()
