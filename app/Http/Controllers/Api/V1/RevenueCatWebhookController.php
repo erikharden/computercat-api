@@ -69,19 +69,45 @@ class RevenueCatWebhookController extends Controller
         }
 
         $type = $event['type'] ?? null;
+        if (! $type) {
+            return response()->json(['message' => 'Missing event type.'], 422);
+        }
+
+        // TEST events from the RevenueCat dashboard don't have purchase fields —
+        // just acknowledge them so the integration test passes.
+        if ($type === 'TEST') {
+            Log::info("RevenueCat test webhook received for {$game->slug}");
+
+            return response()->json(['message' => 'Test webhook received.']);
+        }
+
         $appUserId = $event['app_user_id'] ?? null;
         $productId = $event['product_id'] ?? null;
         $transactionId = $event['transaction_id'] ?? null;
         $store = $this->mapStore($event['store'] ?? null);
 
-        if (! $type || ! $appUserId || ! $productId || ! $transactionId) {
+        // Events we don't care about (e.g., SUBSCRIBER_ALIAS, BILLING_ISSUE, TRANSFER)
+        // — acknowledge but skip processing.
+        $purchaseEvents = [
+            'INITIAL_PURCHASE', 'NON_RENEWING_PURCHASE', 'RENEWAL',
+            'UNCANCELLATION', 'CANCELLATION', 'EXPIRATION', 'REFUND',
+        ];
+        if (! in_array($type, $purchaseEvents, true)) {
+            Log::info("RevenueCat event ignored: {$type}");
+
+            return response()->json(['message' => 'Event acknowledged but not processed.']);
+        }
+
+        if (! $appUserId || ! $productId || ! $transactionId) {
+            Log::warning("RevenueCat {$type} event missing required fields", $event);
+
             return response()->json(['message' => 'Missing required event fields.'], 422);
         }
 
         // Resolve user from app_user_id (we set this to our numeric user ID in the client)
         $user = User::find((int) $appUserId);
         if (! $user) {
-            Log::warning("RevenueCat webhook for unknown user", ['app_user_id' => $appUserId, 'type' => $type]);
+            Log::warning('RevenueCat webhook for unknown user', ['app_user_id' => $appUserId, 'type' => $type]);
 
             // Return 200 to prevent RC from retrying indefinitely
             return response()->json(['message' => 'User not found, ignoring.'], 200);
