@@ -23,6 +23,12 @@ class GameSeeder extends Seeder
                         'min_score' => 5_000,
                         'max_score' => 86_400_000,
                     ],
+                    'streaks' => [
+                        'daily' => [
+                            'max_freezes' => 5,
+                            'freeze_earn_interval' => 7, // earn 1 freeze per 7-day milestone
+                        ],
+                    ],
                     'product_grants' => [
                         'pack_6x6_medium' => ['type' => 'pack', 'id' => '6x6-medium'],
                         'pack_6x6_hard' => ['type' => 'pack', 'id' => '6x6-hard'],
