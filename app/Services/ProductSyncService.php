@@ -231,10 +231,23 @@ class ProductSyncService
             return ["screenshot not found at {$path}"];
         }
 
-        // Skip if already has a screenshot
+        // Check existing screenshot state; if it's in FAILED state or present,
+        // handle it appropriately
         try {
-            if ($client->hasReviewScreenshot($iapId)) {
-                return ['screenshot already uploaded'];
+            $existing = $client->getReviewScreenshot($iapId);
+            if ($existing) {
+                $state = $existing['attributes']['assetDeliveryState']['state'] ?? null;
+
+                if ($state === 'COMPLETE') {
+                    return ['screenshot already uploaded'];
+                }
+
+                // Failed, uploading, or any non-complete state — delete and retry
+                try {
+                    $client->deleteReviewScreenshot($existing['id']);
+                } catch (\Throwable $e) {
+                    // If we can't delete, try uploading anyway
+                }
             }
         } catch (\Throwable $e) {
             // Non-fatal — proceed with upload attempt
@@ -245,7 +258,6 @@ class ProductSyncService
 
             return ['screenshot uploaded'];
         } catch (\Throwable $e) {
-            // Apple says 409 when a screenshot already exists — treat as success
             if (str_contains($e->getMessage(), 'Screenshot already exists') || str_contains($e->getMessage(), 'MEDIA_ASSET_CREATION_NOT_ALLOWED')) {
                 return ['screenshot already uploaded'];
             }

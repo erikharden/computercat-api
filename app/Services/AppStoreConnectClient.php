@@ -205,14 +205,23 @@ class AppStoreConnectClient
     }
 
     /**
-     * Check if an IAP already has a review screenshot (in any state).
-     * Apple blocks CREATE if any screenshot exists, even if it's still uploading.
+     * Get the existing review screenshot resource for an IAP, or null if none.
+     * Returns the raw data array including state info.
      */
-    public function hasReviewScreenshot(string $iapId): bool
+    public function getReviewScreenshot(string $iapId): ?array
     {
         $response = $this->http()->get(self::BASE_URL.'/v2/inAppPurchases/'.$iapId.'/appStoreReviewScreenshot');
+        $data = $response->json('data');
 
-        return ! empty($response->json('data'));
+        return $data ?: null;
+    }
+
+    /**
+     * Delete a review screenshot by its ID.
+     */
+    public function deleteReviewScreenshot(string $screenshotId): void
+    {
+        $this->http()->delete(self::BASE_URL.'/v1/inAppPurchaseAppStoreReviewScreenshots/'.$screenshotId);
     }
 
     /**
