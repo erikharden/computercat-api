@@ -204,11 +204,41 @@ class AppStoreConnectClient
         return $response->json('data');
     }
 
+    /** Cached list of all Apple territory IDs. */
+    private ?array $cachedTerritories = null;
+
     /**
-     * Set availability — make the IAP available in all territories.
+     * Fetch all Apple territory IDs. Cached per request.
+     */
+    public function allTerritoryIds(): array
+    {
+        if ($this->cachedTerritories !== null) {
+            return $this->cachedTerritories;
+        }
+
+        $ids = [];
+        $url = self::BASE_URL.'/v1/territories?limit=200';
+
+        while ($url) {
+            $response = $this->http()->get($url);
+            foreach ($response->json('data', []) as $t) {
+                $ids[] = $t['id'];
+            }
+            $url = $response->json('links.next');
+        }
+
+        return $this->cachedTerritories = $ids;
+    }
+
+    /**
+     * Set availability — make the IAP available in all Apple territories.
+     * Apple requires an explicit list of territories; an empty relationship
+     * is rejected with 422.
      */
     public function createAvailability(string $iapId): array
     {
+        $territoryIds = $this->allTerritoryIds();
+
         $response = $this->http()->post(self::BASE_URL.'/v1/inAppPurchaseAvailabilities', [
             'data' => [
                 'type' => 'inAppPurchaseAvailabilities',
@@ -220,8 +250,10 @@ class AppStoreConnectClient
                         'data' => ['type' => 'inAppPurchases', 'id' => $iapId],
                     ],
                     'availableTerritories' => [
-                        // Empty means "all territories" when combined with
-                        // availableInNewTerritories: true
+                        'data' => array_map(
+                            fn ($id) => ['type' => 'territories', 'id' => $id],
+                            $territoryIds,
+                        ),
                     ],
                 ],
             ],
