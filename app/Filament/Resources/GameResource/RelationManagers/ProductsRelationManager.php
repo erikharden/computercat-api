@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\GameResource\RelationManagers;
 
+use App\Models\Product;
+use App\Services\ProductSyncService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -144,27 +146,45 @@ class ProductsRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->successNotification(
-                        Notification::make()
-                            ->success()
-                            ->title('Product created')
-                            ->body('Remember: you still need to run `php artisan iap:sync '.$this->getOwnerRecord()->slug.'` to push this to App Store Connect, then set the price and upload a review screenshot manually in App Store Connect.')
-                            ->persistent()
-                    ),
+                    ->after(fn (Product $record) => $this->syncToAppleAndNotify($record, 'created')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->successNotification(
-                        Notification::make()
-                            ->success()
-                            ->title('Product updated')
-                            ->body('If you changed display name, description, or reference name, re-run `php artisan iap:sync '.$this->getOwnerRecord()->slug.'` to propagate changes to App Store Connect. Price changes must be done manually in App Store Connect.')
-                            ->persistent()
-                    ),
+                    ->after(fn (Product $record) => $this->syncToAppleAndNotify($record, 'updated')),
+                Tables\Actions\Action::make('sync')
+                    ->label('Sync to Apple')
+                    ->icon('heroicon-o-arrow-path')
+                    ->action(fn (Product $record) => $this->syncToAppleAndNotify($record, 'sync')),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    /**
+     * Sync a product to App Store Connect and show a Filament notification
+     * with the result.
+     */
+    private function syncToAppleAndNotify(Product $product, string $context): void
+    {
+        $service = app(ProductSyncService::class);
+        $result = $service->sync($product);
+
+        if ($result['success']) {
+            Notification::make()
+                ->success()
+                ->title("Product {$context} — synced to App Store Connect")
+                ->body($result['message'])
+                ->persistent()
+                ->send();
+        } else {
+            Notification::make()
+                ->warning()
+                ->title("Product {$context} — sync failed")
+                ->body($result['message'].' (Product is saved locally; you can retry via the Sync action or the `iap:sync` command.)')
+                ->persistent()
+                ->send();
+        }
     }
 }

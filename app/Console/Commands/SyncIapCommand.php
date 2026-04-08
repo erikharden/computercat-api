@@ -4,10 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Game;
 use App\Models\Product;
-use App\Services\AppStoreConnectClient;
+use App\Services\ProductSyncService;
 use Illuminate\Console\Command;
-use RuntimeException;
-use Throwable;
 
 class SyncIapCommand extends Command
 {
@@ -17,7 +15,7 @@ class SyncIapCommand extends Command
 
     protected $description = 'Sync products from the database to App Store Connect';
 
-    public function handle(): int
+    public function handle(ProductSyncService $service): int
     {
         $game = Game::where('slug', $this->argument('game'))->first();
         if (! $game) {
@@ -48,63 +46,24 @@ class SyncIapCommand extends Command
             return self::SUCCESS;
         }
 
-        try {
-            $client = new AppStoreConnectClient($game);
-        } catch (RuntimeException $e) {
-            $this->error($e->getMessage());
-
-            return self::FAILURE;
-        }
-
         $created = 0;
         $skipped = 0;
         $failed = 0;
 
         foreach ($products as $product) {
             $this->line("\n→ {$product->product_id}");
+            $result = $service->sync($product);
 
-            try {
-                $product->update(['apple_state' => 'syncing', 'apple_sync_error' => null]);
-
-                // Check if IAP already exists
-                $existing = $client->findInAppPurchase($product->product_id);
-
-                if ($existing) {
-                    $this->line("  ℹ already exists in App Store Connect (id: {$existing['id']})");
-                    $iapId = $existing['id'];
+            if ($result['success']) {
+                if ($result['action'] === 'already_exists') {
+                    $this->line('  ℹ '.$result['message']);
                     $skipped++;
                 } else {
-                    // Create new IAP
-                    $created = $client->createInAppPurchase([
-                        'name' => $product->reference_name,
-                        'productId' => $product->product_id,
-                        'inAppPurchaseType' => $this->mapProductType($product->product_type),
-                        'reviewNote' => $product->review_notes ?? '',
-                    ]);
-                    $iapId = $created['id'];
-                    $this->info("  ✓ created (id: {$iapId})");
-
-                    // Add English localization
-                    $client->createLocalization(
-                        $iapId,
-                        'en-US',
-                        $product->display_name,
-                        $product->description,
-                    );
-                    $this->info('  ✓ added en-US localization');
+                    $this->info('  ✓ '.$result['message']);
                     $created++;
                 }
-
-                $product->update([
-                    'apple_state' => 'synced',
-                    'apple_synced_at' => now(),
-                ]);
-            } catch (Throwable $e) {
-                $this->error('  ✗ '.$e->getMessage());
-                $product->update([
-                    'apple_state' => 'failed',
-                    'apple_sync_error' => $e->getMessage(),
-                ]);
+            } else {
+                $this->error('  ✗ '.$result['message']);
                 $failed++;
             }
         }
@@ -120,8 +79,6 @@ class SyncIapCommand extends Command
             $this->line('');
             $this->line("   Until these are done, products will show 'Missing Metadata' in App Store Connect.");
             $this->line('');
-
-            // List expected prices for quick reference
             $this->line('   Expected prices from database:');
             foreach ($products as $p) {
                 $this->line(sprintf('     %-30s %6.2f %s', $p->product_id, $p->price, $p->currency));
@@ -129,18 +86,5 @@ class SyncIapCommand extends Command
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
-    }
-
-    /**
-     * Map our product_type enum to Apple's inAppPurchaseType.
-     */
-    private function mapProductType(string $type): string
-    {
-        return match ($type) {
-            'non_consumable' => 'NON_CONSUMABLE',
-            'consumable' => 'CONSUMABLE',
-            'subscription' => 'AUTO_RENEWABLE_SUBSCRIPTION',
-            default => 'NON_CONSUMABLE',
-        };
     }
 }
