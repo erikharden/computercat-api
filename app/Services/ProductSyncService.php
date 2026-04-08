@@ -245,6 +245,11 @@ class ProductSyncService
 
             return ['screenshot uploaded'];
         } catch (\Throwable $e) {
+            // Apple says 409 when a screenshot already exists — treat as success
+            if (str_contains($e->getMessage(), 'Screenshot already exists') || str_contains($e->getMessage(), 'MEDIA_ASSET_CREATION_NOT_ALLOWED')) {
+                return ['screenshot already uploaded'];
+            }
+
             return ['screenshot upload failed: '.$e->getMessage()];
         }
     }

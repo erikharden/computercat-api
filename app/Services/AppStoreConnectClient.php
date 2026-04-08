@@ -205,14 +205,14 @@ class AppStoreConnectClient
     }
 
     /**
-     * Check if an IAP already has a review screenshot.
+     * Check if an IAP already has a review screenshot (in any state).
+     * Apple blocks CREATE if any screenshot exists, even if it's still uploading.
      */
     public function hasReviewScreenshot(string $iapId): bool
     {
         $response = $this->http()->get(self::BASE_URL.'/v2/inAppPurchases/'.$iapId.'/appStoreReviewScreenshot');
-        $data = $response->json('data');
 
-        return ! empty($data) && ($data['attributes']['assetDeliveryState']['state'] ?? null) === 'COMPLETE';
+        return ! empty($response->json('data'));
     }
 
     /**
