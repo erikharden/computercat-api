@@ -16,7 +16,7 @@ use RuntimeException;
  */
 class AppStoreConnectClient
 {
-    private const BASE_URL = 'https://api.appstoreconnect.apple.com/v1';
+    private const BASE_URL = 'https://api.appstoreconnect.apple.com';
 
     private Game $game;
 
@@ -66,7 +66,8 @@ class AppStoreConnectClient
      */
     public function findInAppPurchase(string $productId): ?array
     {
-        $response = $this->http()->get(self::BASE_URL."/apps/{$this->appAppleId}/inAppPurchasesV2", [
+        // Apps have an inAppPurchasesV2 relationship that lists IAPs (v1 endpoint)
+        $response = $this->http()->get(self::BASE_URL."/v1/apps/{$this->appAppleId}/inAppPurchasesV2", [
             'filter[productId]' => $productId,
             'limit' => 1,
         ]);
@@ -77,11 +78,12 @@ class AppStoreConnectClient
     }
 
     /**
-     * Create a new in-app purchase.
+     * Create a new in-app purchase using the v2 API.
+     * v1 is read-only; v2 supports CREATE.
      */
     public function createInAppPurchase(array $attributes): array
     {
-        $response = $this->http()->post(self::BASE_URL.'/inAppPurchases', [
+        $response = $this->http()->post(self::BASE_URL.'/v2/inAppPurchases', [
             'data' => [
                 'type' => 'inAppPurchases',
                 'attributes' => $attributes,
@@ -101,7 +103,7 @@ class AppStoreConnectClient
      */
     public function createLocalization(string $iapId, string $locale, string $name, string $description): array
     {
-        $response = $this->http()->post(self::BASE_URL.'/inAppPurchaseLocalizations', [
+        $response = $this->http()->post(self::BASE_URL.'/v1/inAppPurchaseLocalizations', [
             'data' => [
                 'type' => 'inAppPurchaseLocalizations',
                 'attributes' => [
@@ -126,7 +128,7 @@ class AppStoreConnectClient
      */
     public function createPriceSchedule(string $iapId, string $priceTierId): array
     {
-        $response = $this->http()->post(self::BASE_URL.'/inAppPurchasePriceSchedules', [
+        $response = $this->http()->post(self::BASE_URL.'/v1/inAppPurchasePriceSchedules', [
             'data' => [
                 'type' => 'inAppPurchasePriceSchedules',
                 'relationships' => [
