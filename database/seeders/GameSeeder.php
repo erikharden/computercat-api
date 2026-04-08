@@ -29,27 +29,10 @@ class GameSeeder extends Seeder
                             'freeze_earn_interval' => 7, // earn 1 freeze per 7-day milestone
                         ],
                     ],
-                    // Repeater format: indexed array of {product_id, type, id?}
-                    'product_grants' => [
-                        ['product_id' => 'tocco_pack_6x6_medium', 'type' => 'pack', 'id' => '6x6-medium'],
-                        ['product_id' => 'tocco_pack_6x6_hard', 'type' => 'pack', 'id' => '6x6-hard'],
-                        ['product_id' => 'tocco_pack_8x8_medium', 'type' => 'pack', 'id' => '8x8-medium'],
-                        ['product_id' => 'tocco_pack_8x8_hard', 'type' => 'pack', 'id' => '8x8-hard'],
-                        ['product_id' => 'tocco_pack_10x10_medium', 'type' => 'pack', 'id' => '10x10-medium'],
-                        ['product_id' => 'tocco_pack_10x10_hard', 'type' => 'pack', 'id' => '10x10-hard'],
-                        ['product_id' => 'tocco_pack_12x12_medium', 'type' => 'pack', 'id' => '12x12-medium'],
-                        ['product_id' => 'tocco_pack_12x12_hard', 'type' => 'pack', 'id' => '12x12-hard'],
-                        ['product_id' => 'tocco_pack_14x14_medium', 'type' => 'pack', 'id' => '14x14-medium'],
-                        ['product_id' => 'tocco_pack_14x14_hard', 'type' => 'pack', 'id' => '14x14-hard'],
-                        ['product_id' => 'tocco_themes_cozy', 'type' => 'theme_pack', 'id' => 'cozy'],
-                        ['product_id' => 'tocco_themes_dark_side', 'type' => 'theme_pack', 'id' => 'dark-side'],
-                        ['product_id' => 'tocco_themes_pop_culture', 'type' => 'theme_pack', 'id' => 'pop-culture'],
-                        ['product_id' => 'tocco_themes_wanderlust', 'type' => 'theme_pack', 'id' => 'wanderlust'],
-                        ['product_id' => 'tocco_themes_art_house', 'type' => 'theme_pack', 'id' => 'art-house'],
-                        ['product_id' => 'tocco_themes_wild_card', 'type' => 'theme_pack', 'id' => 'wild-card'],
-                        ['product_id' => 'tocco_themes_upgraded', 'type' => 'theme_pack', 'id' => 'upgraded'],
-                        ['product_id' => 'tocco_supporter', 'type' => 'supporter'],
-                    ],
+                    // Products are now managed in the products table
+                    // (see ToccoProductSeeder). theme_packs is kept here because
+                    // it defines what each theme pack CONTAINS, which is game
+                    // content rather than store metadata.
                     // KeyValue format: {pack_id: "comma,separated,theme,ids"}
                     'theme_packs' => [
                         'cozy' => 'botanical,terracotta,safari,amalfi,diner,cottage',

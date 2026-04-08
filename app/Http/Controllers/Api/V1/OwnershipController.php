@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Game;
+use App\Models\Product;
 use App\Models\Purchase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,30 +12,21 @@ use Illuminate\Http\Request;
 /**
  * Server-authoritative ownership check.
  *
- * Product grants and theme pack mappings are stored in games.settings.
- *
- * Supports two formats for product_grants:
- *   Array format (from Filament Repeater):
- *     [{"product_id": "pack_6x6", "type": "pack", "id": "6x6-medium"}, ...]
- *   Map format (from seeders):
- *     {"pack_6x6": {"type": "pack", "id": "6x6-medium"}, ...}
- *
- * Theme packs can be:
- *   Array: {"retro-nature": ["retro", "spring"]}
- *   String: {"retro-nature": "retro,spring"} (comma-separated from KeyValue)
+ * Reads the products table to map verified purchases to game content grants.
+ * Theme pack contents come from games.settings.theme_packs for per-game flexibility.
  */
 class OwnershipController extends Controller
 {
     public function show(Request $request, Game $game): JsonResponse
     {
-        $settings = $game->settings ?? [];
-        $rawGrants = $settings['product_grants'] ?? [];
-        $rawThemePacks = $settings['theme_packs'] ?? [];
+        $themePacks = $game->settings['theme_packs'] ?? [];
 
-        // Normalize product_grants to a productId → grant map
-        $productGrants = $this->normalizeGrants($rawGrants);
+        // Fetch all products for this game keyed by product_id
+        $products = Product::where('game_id', $game->id)
+            ->get()
+            ->keyBy('product_id');
 
-        $purchases = Purchase::where('user_id', $request->user()->id)
+        $purchasedIds = Purchase::where('user_id', $request->user()->id)
             ->where('game_id', $game->id)
             ->where('status', '!=', 'refunded')
             ->pluck('product_id')
@@ -44,21 +36,27 @@ class OwnershipController extends Controller
         $ownedThemes = [];
         $isSupporter = false;
 
-        foreach ($purchases as $productId) {
-            $grant = $productGrants[$productId] ?? null;
-            if (! $grant) {
+        foreach ($purchasedIds as $productId) {
+            $product = $products->get($productId);
+            if (! $product) {
                 continue;
             }
 
-            $type = $grant['type'] ?? null;
-
-            if ($type === 'pack' && isset($grant['id'])) {
-                $ownedPacks[] = $grant['id'];
-            } elseif ($type === 'theme_pack' && isset($grant['id'])) {
-                $themes = $this->resolveThemePack($grant['id'], $rawThemePacks);
-                $ownedThemes = array_merge($ownedThemes, $themes);
-            } elseif ($type === 'supporter') {
-                $isSupporter = true;
+            switch ($product->grant_type) {
+                case 'pack':
+                    if ($product->grant_id) {
+                        $ownedPacks[] = $product->grant_id;
+                    }
+                    break;
+                case 'theme_pack':
+                    if ($product->grant_id) {
+                        $themes = $this->resolveThemePack($product->grant_id, $themePacks);
+                        $ownedThemes = array_merge($ownedThemes, $themes);
+                    }
+                    break;
+                case 'supporter':
+                    $isSupporter = true;
+                    break;
             }
         }
 
@@ -72,34 +70,8 @@ class OwnershipController extends Controller
     }
 
     /**
-     * Normalize product_grants from either array or map format.
-     */
-    private function normalizeGrants(array $raw): array
-    {
-        if (empty($raw)) {
-            return [];
-        }
-
-        // Check if it's an indexed array (Repeater format)
-        if (array_is_list($raw)) {
-            $map = [];
-            foreach ($raw as $entry) {
-                $pid = $entry['product_id'] ?? null;
-                if ($pid) {
-                    $map[$pid] = $entry;
-                }
-            }
-
-            return $map;
-        }
-
-        // Already a map (seeder format)
-        return $raw;
-    }
-
-    /**
      * Resolve theme pack ID to individual theme IDs.
-     * Handles both array and comma-separated string formats.
+     * Handles both array and comma-separated string formats from settings.
      */
     private function resolveThemePack(string $packId, array $themePacks): array
     {

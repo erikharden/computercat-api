@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             GameSeeder::class,
             ToccoLeaderboardSeeder::class,
             ToccoAchievementSeeder::class,
+            ToccoProductSeeder::class,
         ]);
     }
 }

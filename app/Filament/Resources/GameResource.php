@@ -132,40 +132,44 @@ class GameResource extends Resource
                         ->helperText('Minimum action count required in proof'),
                 ]),
 
-            Forms\Components\Section::make('Products & Ownership')
-                ->description('Define what each product ID unlocks. Used by the /ownership endpoint.')
+            Forms\Components\Section::make('Theme Pack Contents')
+                ->description('Define what themes each theme pack contains. Products themselves are managed in the Products tab after saving the game.')
                 ->collapsed()
                 ->schema([
-                    Forms\Components\Repeater::make('settings.product_grants')
-                        ->label('Product grants')
-                        ->schema([
-                            Forms\Components\TextInput::make('product_id')
-                                ->required()
-                                ->helperText('App Store / Play Store product ID'),
-                            Forms\Components\Select::make('type')
-                                ->options([
-                                    'pack' => 'Content pack',
-                                    'theme_pack' => 'Theme pack',
-                                    'supporter' => 'Supporter (unlocks all)',
-                                ])
-                                ->required()
-                                ->live(),
-                            Forms\Components\TextInput::make('id')
-                                ->label('Pack ID')
-                                ->helperText('The pack/theme-pack ID this product unlocks')
-                                ->visible(fn (Get $get) => in_array($get('type'), ['pack', 'theme_pack'])),
-                        ])
-                        ->columns(3)
-                        ->defaultItems(0)
-                        ->itemLabel(fn (array $state): ?string => ($state['product_id'] ?? '') . ' → ' . ($state['type'] ?? ''))
-                        ->collapsible(),
-
                     Forms\Components\KeyValue::make('settings.theme_packs')
                         ->label('Theme pack contents')
                         ->keyLabel('Theme pack ID')
                         ->valueLabel('Theme IDs (comma-separated)')
                         ->helperText('Map theme pack IDs to the theme IDs they contain. Values are comma-separated.')
                         ->default([]),
+                ]),
+
+            Forms\Components\Section::make('App Store Connect API')
+                ->description('Credentials for syncing products to App Store Connect via the iap:sync command. Create a key at Users and Access → Integrations → App Store Connect API.')
+                ->collapsed()
+                ->schema([
+                    Forms\Components\TextInput::make('settings.app_store_connect.issuer_id')
+                        ->label('Issuer ID')
+                        ->helperText('UUID from the API key page'),
+                    Forms\Components\TextInput::make('settings.app_store_connect.key_id')
+                        ->label('Key ID')
+                        ->helperText('10-character identifier'),
+                    Forms\Components\Textarea::make('settings.app_store_connect.private_key')
+                        ->label('Private key (.p8 contents)')
+                        ->password()
+                        ->rows(5)
+                        ->helperText('Paste the full contents of the .p8 file. Stored encrypted. Leave blank to keep existing.')
+                        ->formatStateUsing(fn () => null)
+                        ->dehydrateStateUsing(function ($state, ?Game $record) {
+                            if (filled($state)) {
+                                return \Illuminate\Support\Facades\Crypt::encryptString($state);
+                            }
+
+                            return $record?->settings['app_store_connect']['private_key'] ?? null;
+                        }),
+                    Forms\Components\TextInput::make('settings.app_store_connect.app_apple_id')
+                        ->label('App Apple ID')
+                        ->helperText('Numeric ID from App Store Connect → App Information (not the bundle ID)'),
                 ]),
 
             Forms\Components\Section::make('RevenueCat Integration')
@@ -244,6 +248,7 @@ class GameResource extends Resource
         return [
             RelationManagers\LeaderboardTypesRelationManager::class,
             RelationManagers\AchievementDefinitionsRelationManager::class,
+            RelationManagers\ProductsRelationManager::class,
             RelationManagers\DailyContentPoolsRelationManager::class,
             RelationManagers\RemoteConfigsRelationManager::class,
             RelationManagers\GameEventsRelationManager::class,
