@@ -16,7 +16,8 @@ class ToccoProductSeeder extends Seeder
             // ── Puzzle packs (10 × 12 kr) ────────────────────────────────────
             // Apple limits: name ≤ 30 chars, description ≤ 55 chars
             [
-                'product_id' => 'tocco_pack_6x6_medium',
+                // Apple reserved the original ID after a failed manual creation
+                'product_id' => 'tocco_pack_6x6_medium_v2',
                 'reference_name' => 'Tocco 6x6 Medium Pack',
                 'grant_type' => 'pack',
                 'grant_id' => '6x6-medium',
