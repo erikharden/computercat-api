@@ -55,22 +55,48 @@ class ProductSyncService
             }
 
             // Create new IAP shell
-            $created = $client->createInAppPurchase([
-                'name' => $product->reference_name,
-                'productId' => $product->product_id,
-                'inAppPurchaseType' => $this->mapProductType($product->product_type),
-                'reviewNote' => $product->review_notes ?? '',
-            ]);
+            try {
+                $created = $client->createInAppPurchase([
+                    'name' => $product->reference_name,
+                    'productId' => $product->product_id,
+                    'inAppPurchaseType' => $this->mapProductType($product->product_type),
+                    'reviewNote' => $product->review_notes ?? '',
+                ]);
+                $iapId = $created['id'];
+            } catch (RuntimeException $e) {
+                // 409 Conflict: product ID already exists in App Store Connect but
+                // our findInAppPurchase() didn't catch it (filter quirks, deleted
+                // products blocking IDs, etc.). Mark as synced anyway since Apple
+                // already has the record.
+                if ($e->getCode() === 409 || str_contains($e->getMessage(), 'DUPLICATE') || str_contains($e->getMessage(), 'already been used')) {
+                    $product->update([
+                        'apple_state' => 'synced',
+                        'apple_synced_at' => now(),
+                    ]);
 
-            $iapId = $created['id'];
+                    return [
+                        'success' => true,
+                        'action' => 'already_exists',
+                        'message' => "Product ID '{$product->product_id}' already exists in App Store Connect (possibly in a different state or deleted). No changes made. If you need to update it, edit it directly in App Store Connect.",
+                    ];
+                }
+                throw $e;
+            }
 
             // Add English localization
-            $client->createLocalization(
-                $iapId,
-                'en-US',
-                $product->display_name,
-                $product->description,
-            );
+            try {
+                $client->createLocalization(
+                    $iapId,
+                    'en-US',
+                    $product->display_name,
+                    $product->description,
+                );
+            } catch (RuntimeException $e) {
+                // Localization may already exist — not fatal
+                if ($e->getCode() !== 409 && ! str_contains($e->getMessage(), 'DUPLICATE')) {
+                    throw $e;
+                }
+            }
 
             $product->update([
                 'apple_state' => 'synced',
