@@ -42,15 +42,44 @@ class ProductSyncService
             $existing = $client->findInAppPurchase($product->product_id);
 
             if ($existing) {
+                $iapId = $existing['id'];
+
+                // Try to set pricing/availability on existing products too —
+                // they might have been created before this feature was added
+                $notes = [];
+                try {
+                    $client->createAvailability($iapId);
+                    $notes[] = 'availability set';
+                } catch (RuntimeException $e) {
+                    if ($e->getCode() !== 409 && ! str_contains($e->getMessage(), 'DUPLICATE')) {
+                        $notes[] = 'availability failed';
+                    }
+                }
+
+                try {
+                    $baseTerritory = $this->territoryForCurrency($product->currency);
+                    $pricePointId = $client->findPricePoint($iapId, $baseTerritory, (float) $product->price);
+                    if ($pricePointId) {
+                        $client->createPriceSchedule($iapId, $baseTerritory, $pricePointId);
+                        $notes[] = "price set ({$product->price} {$product->currency})";
+                    }
+                } catch (RuntimeException $e) {
+                    if ($e->getCode() !== 409 && ! str_contains($e->getMessage(), 'DUPLICATE')) {
+                        $notes[] = 'price failed: '.$e->getMessage();
+                    }
+                }
+
                 $product->update([
                     'apple_state' => 'synced',
                     'apple_synced_at' => now(),
                 ]);
 
+                $extra = $notes ? ' ('.implode(', ', $notes).')' : '';
+
                 return [
                     'success' => true,
                     'action' => 'already_exists',
-                    'message' => "Already exists in App Store Connect (id: {$existing['id']}). Remember to set price and upload review screenshot manually.",
+                    'message' => "Already exists (id: {$iapId}){$extra}. Only review screenshot is still manual.",
                 ];
             }
 
@@ -98,6 +127,35 @@ class ProductSyncService
                 }
             }
 
+            // Set availability (all territories)
+            $availabilityNote = '';
+            try {
+                $client->createAvailability($iapId);
+            } catch (RuntimeException $e) {
+                if ($e->getCode() !== 409 && ! str_contains($e->getMessage(), 'DUPLICATE')) {
+                    $availabilityNote = ' Availability setup failed: '.$e->getMessage();
+                }
+            }
+
+            // Set price schedule using Swedish territory as base
+            $priceNote = '';
+            try {
+                $baseTerritory = $this->territoryForCurrency($product->currency);
+                $pricePointId = $client->findPricePoint($iapId, $baseTerritory, (float) $product->price);
+
+                if ($pricePointId) {
+                    $client->createPriceSchedule($iapId, $baseTerritory, $pricePointId);
+                } else {
+                    $priceNote = " No matching Apple price tier found for {$product->price} {$product->currency} — set price manually.";
+                }
+            } catch (RuntimeException $e) {
+                if ($e->getCode() === 409 || str_contains($e->getMessage(), 'DUPLICATE')) {
+                    // Price schedule already exists
+                } else {
+                    $priceNote = ' Price setup failed: '.$e->getMessage();
+                }
+            }
+
             $product->update([
                 'apple_state' => 'synced',
                 'apple_synced_at' => now(),
@@ -106,7 +164,7 @@ class ProductSyncService
             return [
                 'success' => true,
                 'action' => 'created',
-                'message' => "Created in App Store Connect (id: {$iapId}). Now set price ({$product->price} {$product->currency}) and upload review screenshot manually.",
+                'message' => "Created in App Store Connect (id: {$iapId}) with price {$product->price} {$product->currency} and worldwide availability.{$availabilityNote}{$priceNote} Review screenshot still needs to be uploaded manually.",
             ];
         } catch (RuntimeException $e) {
             $product->update([
@@ -140,6 +198,22 @@ class ProductSyncService
             'consumable' => 'CONSUMABLE',
             'subscription' => 'AUTO_RENEWABLE_SUBSCRIPTION',
             default => 'NON_CONSUMABLE',
+        };
+    }
+
+    /**
+     * Map ISO currency to Apple's 3-letter territory code for pricing base.
+     */
+    private function territoryForCurrency(string $currency): string
+    {
+        return match (strtoupper($currency)) {
+            'SEK' => 'SWE',
+            'USD' => 'USA',
+            'EUR' => 'DEU', // Germany as default EUR
+            'GBP' => 'GBR',
+            'NOK' => 'NOR',
+            'DKK' => 'DNK',
+            default => 'USA',
         };
     }
 }

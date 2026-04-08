@@ -123,10 +123,52 @@ class AppStoreConnectClient
     }
 
     /**
-     * Set the price schedule for an IAP.
-     * Requires an Apple "price point" ID. We derive one from the tier.
+     * Find the Apple price point ID closest to the desired price for a territory.
+     * Apple only accepts pre-defined price tiers — you can't set arbitrary prices.
+     *
+     * @param  string  $iapId  In-app purchase ID
+     * @param  string  $territory  3-letter territory code (e.g. "SWE")
+     * @param  float  $desiredPrice  Target customer price in that territory
+     * @return string|null Price point ID (null if no match found)
      */
-    public function createPriceSchedule(string $iapId, string $priceTierId): array
+    public function findPricePoint(string $iapId, string $territory, float $desiredPrice): ?string
+    {
+        // Query price points for this IAP + territory
+        // Apple paginates — we may need multiple pages, but price points are
+        // usually few enough to fit in one page
+        $response = $this->http()->get(self::BASE_URL."/v2/inAppPurchases/{$iapId}/pricePoints", [
+            'filter[territory]' => $territory,
+            'limit' => 200,
+        ]);
+
+        $points = $response->json('data', []);
+
+        $closestId = null;
+        $closestDiff = PHP_FLOAT_MAX;
+
+        foreach ($points as $point) {
+            $price = (float) ($point['attributes']['customerPrice'] ?? 0);
+            $diff = abs($price - $desiredPrice);
+
+            // Exact match wins immediately
+            if ($diff < 0.01) {
+                return $point['id'];
+            }
+
+            if ($diff < $closestDiff) {
+                $closestDiff = $diff;
+                $closestId = $point['id'];
+            }
+        }
+
+        return $closestId;
+    }
+
+    /**
+     * Create a price schedule for an IAP with base territory auto-conversion.
+     * Apple derives prices for all other territories from the base.
+     */
+    public function createPriceSchedule(string $iapId, string $baseTerritory, string $pricePointId): array
     {
         $response = $this->http()->post(self::BASE_URL.'/v1/inAppPurchasePriceSchedules', [
             'data' => [
@@ -136,29 +178,50 @@ class AppStoreConnectClient
                         'data' => ['type' => 'inAppPurchases', 'id' => $iapId],
                     ],
                     'baseTerritory' => [
-                        'data' => ['type' => 'territories', 'id' => 'USA'],
+                        'data' => ['type' => 'territories', 'id' => $baseTerritory],
                     ],
                     'manualPrices' => [
-                        'data' => [
-                            [
-                                'type' => 'inAppPurchasePrices',
-                                'id' => '${price}', // Apple template syntax for new price
-                            ],
-                        ],
+                        'data' => [['type' => 'inAppPurchasePrices', 'id' => '${new-price}']],
                     ],
                 ],
             ],
             'included' => [
                 [
                     'type' => 'inAppPurchasePrices',
-                    'id' => '${price}',
+                    'id' => '${new-price}',
                     'attributes' => [
                         'startDate' => null,
                     ],
                     'relationships' => [
                         'inAppPurchasePricePoint' => [
-                            'data' => ['type' => 'inAppPurchasePricePoints', 'id' => $priceTierId],
+                            'data' => ['type' => 'inAppPurchasePricePoints', 'id' => $pricePointId],
                         ],
+                    ],
+                ],
+            ],
+        ]);
+
+        return $response->json('data');
+    }
+
+    /**
+     * Set availability — make the IAP available in all territories.
+     */
+    public function createAvailability(string $iapId): array
+    {
+        $response = $this->http()->post(self::BASE_URL.'/v1/inAppPurchaseAvailabilities', [
+            'data' => [
+                'type' => 'inAppPurchaseAvailabilities',
+                'attributes' => [
+                    'availableInNewTerritories' => true,
+                ],
+                'relationships' => [
+                    'inAppPurchase' => [
+                        'data' => ['type' => 'inAppPurchases', 'id' => $iapId],
+                    ],
+                    'availableTerritories' => [
+                        // Empty means "all territories" when combined with
+                        // availableInNewTerritories: true
                     ],
                 ],
             ],
