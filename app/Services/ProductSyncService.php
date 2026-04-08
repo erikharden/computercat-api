@@ -50,8 +50,10 @@ class ProductSyncService
                     $client->createLocalization($iapId, 'en-US', $product->display_name, $product->description);
                     $notes[] = 'localization set';
                 } catch (RuntimeException $e) {
-                    if ($e->getCode() !== 409 && ! str_contains($e->getMessage(), 'DUPLICATE')) {
-                        $notes[] = 'localization failed';
+                    if ($this->isDuplicateError($e)) {
+                        // Already exists — fine
+                    } else {
+                        $notes[] = 'localization failed: '.$this->extractApiError($e);
                     }
                 }
                 try {
@@ -203,6 +205,33 @@ class ProductSyncService
                 'message' => "Unexpected error: {$e->getMessage()}",
             ];
         }
+    }
+
+    /**
+     * Check if a RuntimeException represents an "already exists" error from
+     * App Store Connect that can be safely ignored. Any other 409 (e.g.
+     * validation failures like TOO_LONG) should NOT be treated as duplicate.
+     */
+    private function isDuplicateError(RuntimeException $e): bool
+    {
+        $msg = $e->getMessage();
+
+        return str_contains($msg, 'DUPLICATE')
+            || str_contains($msg, 'already exists')
+            || str_contains($msg, 'has already been used');
+    }
+
+    /**
+     * Extract a short, readable error from App Store Connect's verbose JSON.
+     */
+    private function extractApiError(RuntimeException $e): string
+    {
+        $msg = $e->getMessage();
+        if (preg_match('/"detail"\s*:\s*"([^"]+)"/', $msg, $m)) {
+            return $m[1];
+        }
+
+        return substr($msg, 0, 100);
     }
 
     private function mapProductType(string $type): string

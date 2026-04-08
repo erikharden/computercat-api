@@ -14,6 +14,7 @@ class ToccoProductSeeder extends Seeder
 
         $products = [
             // ── Puzzle packs (10 × 12 kr) ────────────────────────────────────
+            // Apple limits: name ≤ 30 chars, description ≤ 55 chars
             [
                 'product_id' => 'tocco_pack_6x6_medium',
                 'reference_name' => 'Tocco 6x6 Medium Pack',
@@ -21,7 +22,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '6x6-medium',
                 'price' => 12,
                 'display_name' => '6×6 Medium Pack',
-                'description' => '20 medium-difficulty 6×6 Binairo puzzles. A step up from the free starter pack.',
+                'description' => '20 medium 6×6 Binairo puzzles.',
                 'sort_order' => 10,
             ],
             [
@@ -31,7 +32,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '6x6-hard',
                 'price' => 12,
                 'display_name' => '6×6 Hard Pack',
-                'description' => '20 hard-difficulty 6×6 Binairo puzzles for experienced solvers.',
+                'description' => '20 hard 6×6 Binairo puzzles.',
                 'sort_order' => 11,
             ],
             [
@@ -41,7 +42,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '8x8-medium',
                 'price' => 12,
                 'display_name' => '8×8 Medium Pack',
-                'description' => '20 medium-difficulty 8×8 Binairo puzzles.',
+                'description' => '20 medium 8×8 Binairo puzzles.',
                 'sort_order' => 20,
             ],
             [
@@ -51,7 +52,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '8x8-hard',
                 'price' => 12,
                 'display_name' => '8×8 Hard Pack',
-                'description' => '20 hard-difficulty 8×8 Binairo puzzles.',
+                'description' => '20 hard 8×8 Binairo puzzles.',
                 'sort_order' => 21,
             ],
             [
@@ -61,7 +62,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '10x10-medium',
                 'price' => 12,
                 'display_name' => '10×10 Medium Pack',
-                'description' => '20 medium-difficulty 10×10 Binairo puzzles.',
+                'description' => '20 medium 10×10 Binairo puzzles.',
                 'sort_order' => 30,
             ],
             [
@@ -71,7 +72,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '10x10-hard',
                 'price' => 12,
                 'display_name' => '10×10 Hard Pack',
-                'description' => '20 hard-difficulty 10×10 Binairo puzzles.',
+                'description' => '20 hard 10×10 Binairo puzzles.',
                 'sort_order' => 31,
             ],
             [
@@ -81,7 +82,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '12x12-medium',
                 'price' => 12,
                 'display_name' => '12×12 Medium Pack',
-                'description' => '20 medium-difficulty 12×12 Binairo puzzles. A bigger challenge.',
+                'description' => '20 medium 12×12 Binairo puzzles.',
                 'sort_order' => 40,
             ],
             [
@@ -91,7 +92,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '12x12-hard',
                 'price' => 12,
                 'display_name' => '12×12 Hard Pack',
-                'description' => '20 hard-difficulty 12×12 Binairo puzzles.',
+                'description' => '20 hard 12×12 Binairo puzzles.',
                 'sort_order' => 41,
             ],
             [
@@ -101,7 +102,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '14x14-medium',
                 'price' => 12,
                 'display_name' => '14×14 Medium Pack',
-                'description' => '20 medium-difficulty 14×14 Binairo puzzles. The biggest grid.',
+                'description' => '20 medium 14×14 Binairo puzzles.',
                 'sort_order' => 50,
             ],
             [
@@ -111,7 +112,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => '14x14-hard',
                 'price' => 12,
                 'display_name' => '14×14 Hard Pack',
-                'description' => '20 hard-difficulty 14×14 Binairo puzzles for the dedicated.',
+                'description' => '20 hard 14×14 Binairo puzzles.',
                 'sort_order' => 51,
             ],
 
@@ -123,7 +124,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'cozy',
                 'price' => 25,
                 'display_name' => 'Cozy Themes',
-                'description' => '6 warm, comforting themes: Botanical, Terracotta, Safari, Amalfi, Diner, and Cottage.',
+                'description' => '6 warm themes for relaxed puzzle sessions.',
                 'sort_order' => 100,
             ],
             [
@@ -133,7 +134,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'dark-side',
                 'price' => 19,
                 'display_name' => 'Dark Side Themes',
-                'description' => '5 moody, atmospheric themes: Noir, Cinema, Steampunk, Medieval, and Sheriff.',
+                'description' => '5 moody, atmospheric themes.',
                 'sort_order' => 101,
             ],
             [
@@ -143,7 +144,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'pop-culture',
                 'price' => 19,
                 'display_name' => 'Pop Culture Themes',
-                'description' => '5 pop-inspired themes: Comic, Pop Art, Platformer, Superhero, and Sport.',
+                'description' => '5 pop-inspired themes.',
                 'sort_order' => 102,
             ],
             [
@@ -153,7 +154,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'wanderlust',
                 'price' => 19,
                 'display_name' => 'Wanderlust Themes',
-                'description' => '5 travel-inspired themes: Miami, Tropicana, Vegas, Desert, and Circus.',
+                'description' => '5 travel-inspired themes.',
                 'sort_order' => 103,
             ],
             [
@@ -163,7 +164,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'art-house',
                 'price' => 19,
                 'display_name' => 'Art House Themes',
-                'description' => '5 artistic themes: Art Deco, Ukiyo-e, Origami, Vinyl, and Gemstone.',
+                'description' => '5 artistic, refined themes.',
                 'sort_order' => 104,
             ],
             [
@@ -173,7 +174,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'wild-card',
                 'price' => 19,
                 'display_name' => 'Wild Card Themes',
-                'description' => '5 offbeat themes: Laboratory, Time Travel, Rock, Pirate, and Neon.',
+                'description' => '5 offbeat, unexpected themes.',
                 'sort_order' => 105,
             ],
             [
@@ -183,7 +184,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => 'upgraded',
                 'price' => 19,
                 'display_name' => 'Upgraded Themes',
-                'description' => '6 refreshed versions of classic themes: Zen II, Candy II, Retro II, Space II, Mono II, and Ocean II.',
+                'description' => '6 refreshed classic themes.',
                 'sort_order' => 106,
             ],
 
@@ -195,7 +196,7 @@ class ToccoProductSeeder extends Seeder
                 'grant_id' => null,
                 'price' => 179,
                 'display_name' => 'Tocco Supporter',
-                'description' => 'Unlock everything — all puzzle packs, all themes, and support ongoing development. A one-time purchase.',
+                'description' => 'Unlock everything — all packs and themes.',
                 'sort_order' => 200,
             ],
         ];
