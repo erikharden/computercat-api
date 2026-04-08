@@ -182,16 +182,18 @@ class GameResource extends Resource
                         ->label('Webhook signing secret')
                         ->password()
                         ->revealable()
-                        ->helperText('Stored encrypted. Set this in RevenueCat → Project Settings → Webhooks → Authorization header value.')
-                        ->dehydrateStateUsing(function ($state) {
-                            // Only re-encrypt if the value actually changed (not a stub)
-                            if (! $state || str_starts_with($state, 'eyJ')) {
-                                return $state;
+                        ->helperText('Leave blank to keep existing secret. To set/change: paste the same value you put in RevenueCat → Webhooks → Authorization header.')
+                        // Always show empty on load — never echo back the stored secret
+                        ->formatStateUsing(fn () => null)
+                        // If input is empty, preserve the existing stored value;
+                        // otherwise encrypt the new plaintext secret
+                        ->dehydrateStateUsing(function ($state, ?Game $record) {
+                            if (filled($state)) {
+                                return \Illuminate\Support\Facades\Crypt::encryptString($state);
                             }
 
-                            return \Illuminate\Support\Facades\Crypt::encryptString($state);
-                        })
-                        ->formatStateUsing(fn ($state) => $state ? '••••••••••••' : null),
+                            return $record?->settings['revenuecat']['webhook_secret'] ?? null;
+                        }),
                     Forms\Components\Placeholder::make('webhook_url')
                         ->label('Webhook URL (for RevenueCat dashboard)')
                         ->content(fn ($record) => $record
