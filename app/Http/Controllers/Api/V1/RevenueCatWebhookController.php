@@ -27,13 +27,16 @@ class RevenueCatWebhookController extends Controller
 {
     public function handle(Request $request, Game $game): JsonResponse
     {
-        // Verify Authorization header
+        // Verify Authorization header — accept both "Bearer <secret>" and raw "<secret>"
+        // since RevenueCat sends whatever you put in the dashboard verbatim.
         $authHeader = $request->header('Authorization');
-        if (! $authHeader || ! str_starts_with($authHeader, 'Bearer ')) {
+        if (! $authHeader) {
             return response()->json(['message' => 'Missing authorization.'], 401);
         }
 
-        $providedToken = substr($authHeader, 7);
+        $providedToken = str_starts_with($authHeader, 'Bearer ')
+            ? substr($authHeader, 7)
+            : $authHeader;
 
         // Get the configured webhook secret for this game
         $encryptedSecret = $game->settings['revenuecat']['webhook_secret'] ?? null;
