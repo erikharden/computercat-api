@@ -52,9 +52,10 @@ class PlayerStatsController extends Controller
         return response()->json([
             'data' => [
                 'total_games' => $totalGames,
-                'best_scores' => $bestScores,
+                // Cast to objects so empty results serialize as {} not []
+                'best_scores' => (object) $bestScores,
                 'achievement_count' => $achievementCount,
-                'current_streaks' => $streaks,
+                'current_streaks' => (object) $streaks->all(),
                 'member_since' => $user->created_at->toIso8601String(),
                 'last_active' => $user->last_seen_at?->toIso8601String(),
             ],

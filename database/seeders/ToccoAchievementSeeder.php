@@ -57,6 +57,20 @@ class ToccoAchievementSeeder extends Seeder
             // Session
             ['slug' => 'marathon', 'name' => 'Marathon', 'description' => 'Solve 5 puzzles in a single day', 'icon' => "\u{1F3C5}", 'sort_order' => 24],
             ['slug' => 'comeback', 'name' => 'Comeback', 'description' => 'Return to play after at least 7 days away', 'icon' => "\u{1F504}", 'sort_order' => 25],
+
+            // Weekly challenges
+            ['slug' => 'weekly_first', 'name' => 'Challenger', 'description' => 'Complete your first weekly challenge', 'icon' => "\u{1F3CB}\u{FE0F}", 'sort_order' => 26],
+            ['slug' => 'weekly_4', 'name' => 'Monthly Challenger', 'description' => 'Complete 4 weekly challenges', 'icon' => "\u{1F4C6}", 'sort_order' => 27],
+            ['slug' => 'weekly_12', 'name' => 'Seasonal Warrior', 'description' => 'Complete 12 weekly challenges', 'icon' => "\u{1F6E1}\u{FE0F}", 'sort_order' => 28],
+
+            // Zen mode
+            ['slug' => 'zen_first', 'name' => 'Inner Peace', 'description' => 'Complete your first zen puzzle', 'icon' => "\u{1F9D8}", 'sort_order' => 29],
+            ['slug' => 'zen_10', 'name' => 'Zen Master', 'description' => 'Complete 10 zen puzzles', 'icon' => "\u{1FAB7}", 'sort_order' => 30],
+
+            // Speed run mode
+            ['slug' => 'speedrun_first', 'name' => 'Speed Racer', 'description' => 'Complete your first speed run', 'icon' => "\u{26A1}", 'sort_order' => 31],
+            ['slug' => 'speedrun_all_sizes', 'name' => 'Full Throttle', 'description' => 'Complete a speed run in every grid size', 'icon' => "\u{1F3C1}", 'sort_order' => 32],
+            ['slug' => 'speedrun_sub5', 'name' => 'Under Five', 'description' => 'Complete any speed run in under 5 minutes', 'icon' => "\u{23F1}\u{FE0F}", 'sort_order' => 33],
         ];
 
         foreach ($achievements as $data) {

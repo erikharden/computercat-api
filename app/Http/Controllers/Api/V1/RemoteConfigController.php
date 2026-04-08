@@ -20,6 +20,7 @@ class RemoteConfigController extends Controller
             $data[$config->key] = $config->typedValue();
         }
 
-        return response()->json(['data' => $data]);
+        // Cast to object so empty result serializes as {} not []
+        return response()->json(['data' => (object) $data]);
     }
 }
