@@ -44,8 +44,16 @@ class ProductSyncService
             if ($existing) {
                 $iapId = $existing['id'];
 
-                // Try to set pricing/availability on existing products too
+                // Try to set localization, pricing, availability on existing products
                 $notes = [];
+                try {
+                    $client->createLocalization($iapId, 'en-US', $product->display_name, $product->description);
+                    $notes[] = 'localization set';
+                } catch (RuntimeException $e) {
+                    if ($e->getCode() !== 409 && ! str_contains($e->getMessage(), 'DUPLICATE')) {
+                        $notes[] = 'localization failed';
+                    }
+                }
                 try {
                     $client->createAvailability($iapId);
                     $notes[] = 'availability set';
