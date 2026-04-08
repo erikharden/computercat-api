@@ -156,9 +156,9 @@ class GameResource extends Resource
                         ->helperText('10-character identifier'),
                     Forms\Components\Textarea::make('settings.app_store_connect.private_key')
                         ->label('Private key (.p8 contents)')
-                        ->password()
                         ->rows(5)
-                        ->helperText('Paste the full contents of the .p8 file. Stored encrypted. Leave blank to keep existing.')
+                        ->helperText('Paste the full contents of the .p8 file (including BEGIN/END lines). Stored encrypted. Leave blank to keep existing.')
+                        // Never show the stored encrypted blob back to the user
                         ->formatStateUsing(fn () => null)
                         ->dehydrateStateUsing(function ($state, ?Game $record) {
                             if (filled($state)) {
