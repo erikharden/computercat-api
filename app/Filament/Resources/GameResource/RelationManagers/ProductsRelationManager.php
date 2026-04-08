@@ -5,6 +5,7 @@ namespace App\Filament\Resources\GameResource\RelationManagers;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -104,6 +105,7 @@ class ProductsRelationManager extends RelationManager
     {
         return $table
             ->defaultSort('sort_order')
+            ->description('Products are the source of truth. After creating/editing, run `php artisan iap:sync '.$this->getOwnerRecord()->slug.'` to push to App Store Connect. Price and review screenshot must be set manually in App Store Connect (Apple API limitation).')
             ->columns([
                 Tables\Columns\TextColumn::make('product_id')
                     ->searchable()
@@ -124,20 +126,41 @@ class ProductsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('price')
                     ->suffix(fn ($record) => ' ' . $record->currency),
                 Tables\Columns\TextColumn::make('apple_state')
+                    ->label('Synced to Apple')
                     ->badge()
                     ->color(fn (string $state) => match ($state) {
                         'synced' => 'success',
                         'syncing' => 'warning',
                         'failed' => 'danger',
                         default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'synced' => 'Synced (needs price)',
+                        'syncing' => 'Syncing...',
+                        'failed' => 'Failed',
+                        default => 'Not synced',
                     }),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()
+                    ->successNotification(
+                        Notification::make()
+                            ->success()
+                            ->title('Product created')
+                            ->body('Remember: you still need to run `php artisan iap:sync '.$this->getOwnerRecord()->slug.'` to push this to App Store Connect, then set the price and upload a review screenshot manually in App Store Connect.')
+                            ->persistent()
+                    ),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->successNotification(
+                        Notification::make()
+                            ->success()
+                            ->title('Product updated')
+                            ->body('If you changed display name, description, or reference name, re-run `php artisan iap:sync '.$this->getOwnerRecord()->slug.'` to propagate changes to App Store Connect. Price changes must be done manually in App Store Connect.')
+                            ->persistent()
+                    ),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

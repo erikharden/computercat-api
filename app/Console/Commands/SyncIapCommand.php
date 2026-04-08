@@ -111,7 +111,22 @@ class SyncIapCommand extends Command
 
         $this->line('');
         $this->info("Done: {$created} created, {$skipped} already existed, {$failed} failed");
-        $this->warn('Note: you still need to set prices and upload review screenshots manually in App Store Connect.');
+
+        if ($created > 0 || $skipped > 0) {
+            $this->line('');
+            $this->warn('⚠  Manual steps still required in App Store Connect:');
+            $this->line('   1. Set PRICE for each product (dropdown from Apple\'s price tiers)');
+            $this->line('   2. Upload REVIEW SCREENSHOT for each product (can reuse same image)');
+            $this->line('');
+            $this->line("   Until these are done, products will show 'Missing Metadata' in App Store Connect.");
+            $this->line('');
+
+            // List expected prices for quick reference
+            $this->line('   Expected prices from database:');
+            foreach ($products as $p) {
+                $this->line(sprintf('     %-30s %6.2f %s', $p->product_id, $p->price, $p->currency));
+            }
+        }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
