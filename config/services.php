@@ -35,17 +35,4 @@ return [
         ],
     ],
 
-    'apple_iap' => [
-        'issuer_id' => env('APPLE_IAP_ISSUER_ID'),
-        'key_id' => env('APPLE_IAP_KEY_ID'),
-        'private_key' => env('APPLE_IAP_PRIVATE_KEY'),
-        'bundle_id' => env('APPLE_IAP_BUNDLE_ID', 'app.tocco.puzzle'),
-        'environment' => env('APPLE_IAP_ENVIRONMENT', 'Production'),
-    ],
-
-    'google_play' => [
-        'credentials_path' => env('GOOGLE_PLAY_CREDENTIALS'),
-        'package_name' => env('GOOGLE_PLAY_PACKAGE_NAME'),
-    ],
-
 ];

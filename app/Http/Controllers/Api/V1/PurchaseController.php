@@ -4,16 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Purchase;
-use App\Services\ReceiptVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Purchase management endpoints.
+ *
+ * Receipt verification is handled by RevenueCat webhooks, not here.
+ * The /verify endpoint remains as a manual fallback (e.g. for web
+ * purchases or support tools) and records unverified pending purchases.
+ */
 class PurchaseController extends Controller
 {
-    public function __construct(
-        private ReceiptVerificationService $receiptService,
-    ) {}
-
     public function index(Request $request): JsonResponse
     {
         $purchases = Purchase::where('user_id', $request->user()->id)
@@ -30,6 +32,14 @@ class PurchaseController extends Controller
         ]);
     }
 
+    /**
+     * Manual purchase recording. Normally RevenueCat webhooks populate
+     * the purchases table automatically — this endpoint is a fallback
+     * for web purchases or admin/support use.
+     *
+     * Records the purchase as 'pending' without any receipt verification.
+     * For real verification use the RevenueCat webhook pipeline.
+     */
     public function verify(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -40,21 +50,6 @@ class PurchaseController extends Controller
             'receipt_data' => 'nullable|string',
         ]);
 
-        // Verify receipt with store
-        $result = $this->receiptService->verify(
-            $validated['store'],
-            $validated['product_id'],
-            $validated['transaction_id'],
-            $validated['receipt_data'] ?? null,
-        );
-
-        $status = $result['verified'] ? 'verified' : 'pending';
-
-        // For web purchases (no receipt), mark as pending for manual review
-        if ($validated['store'] === 'web') {
-            $status = 'pending';
-        }
-
         $purchase = Purchase::create([
             'user_id' => $request->user()->id,
             'game_id' => $validated['game_id'],
@@ -62,7 +57,7 @@ class PurchaseController extends Controller
             'store' => $validated['store'],
             'transaction_id' => $validated['transaction_id'],
             'receipt_data' => $validated['receipt_data'] ?? null,
-            'status' => $status,
+            'status' => 'pending',
             'purchased_at' => now(),
         ]);
 

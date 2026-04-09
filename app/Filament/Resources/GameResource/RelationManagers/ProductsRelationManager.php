@@ -90,8 +90,14 @@ class ProductsRelationManager extends RelationManager
                     Forms\Components\Textarea::make('review_notes')
                         ->rows(2)
                         ->helperText('Notes for Apple reviewers (e.g. how to trigger the purchase)'),
-                    Forms\Components\TextInput::make('review_screenshot_path')
-                        ->helperText('Path to the review screenshot file (uploaded separately)'),
+                    Forms\Components\FileUpload::make('review_screenshot_path')
+                        ->label('Review screenshot')
+                        ->image()
+                        ->imageEditor()
+                        ->disk('local')
+                        ->directory('review-screenshots')
+                        ->helperText('Apple requires 640×920 PNG. Same image can be reused across all products for a game. Resize/crop with the built-in editor.')
+                        ->downloadable(),
                 ]),
 
             Forms\Components\Section::make('Ordering')
